@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "predicting-social-cost"
+version = "0.1.0"
+description = "Contains code to train MARL agents using MARLlib, perform Monte Carlo policy evaluation, compute social cost and generate agent strategy metrics and visualizations"
+authors = ["Niket Parikh <niketnp2@illinois.edu>"]
+license = "MIT License"
+
+[tool.poetry.dependencies]
+python = "3.8.*"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

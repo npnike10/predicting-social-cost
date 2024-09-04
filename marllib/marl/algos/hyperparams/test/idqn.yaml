@@ -1,0 +1,20 @@
+# IDQN parameters
+
+algo_args:
+  train_batch_size: 128
+  lr: 0.0001
+  # update the replay buffer with 'rollout_fragment_length' samples at once. Note that this setting applies per-worker if num_workers > 1.
+  rollout_fragment_length: 100
+  buffer_size: 1000000
+  # update the target network every `target_network_update_freq` steps.
+  target_network_update_freq: 10000
+  initial_epsilon: 1.0
+  final_epsilon: 0.15
+  epsilon_timesteps: 1000000
+  # gradient clipping, set to None for no clipping.
+  grad_clip: 100
+  dueling: False
+  double_q: False
+  # N-step Q-learning
+  n_step: 1
+  prioritized_replay: False
