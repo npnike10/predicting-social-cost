@@ -32,7 +32,7 @@ alg.fit(
     share_policy="individual",
     evaluation_interval=5,
     evaluation_num_episodes=20,
-    checkpoint_freq=1000,
+    checkpoint_freq=500,
     seed=np.random.randint(low=0, high=10000),
-    local_dir="exp_results/wildfire/ippo_test_13Aug_run12",
+    local_dir="exp_results/wildfire/ippo_test_10Sep_run10",
 )

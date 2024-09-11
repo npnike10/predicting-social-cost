@@ -29,7 +29,7 @@ env = gym.make(
     beta=0.9,
     delta_beta=0.7,
     num_agents=2,
-    agent_start_positions=((12, 6), (12, 13)),
+    agent_start_positions=((8, 8), (14, 2)),
     initial_fire_size=3,
     cooperative_reward=True,
 )
@@ -40,7 +40,7 @@ NUM_EPISODES = (
     5000  # sample size to use for Monte Carlo estimate of value function at each state
 )
 NUM_WORKERS = 16  # number of workers to use for parallel processing
-POLICY = "ippo_13Aug_run2"  # policy to evaluate
+POLICY = "ippo_10Sep_run2"  # policy to evaluate
 SHARED_POLICY = False  # whether agents share the same policy
 STOCHASTIC_POLICY = True  # whether policy is stochastic
 RUN = "first_run"  # run name
@@ -55,8 +55,8 @@ if USE_LOGS:
         state_wise_returns = json.load(fp)
 
 # directories needed to load agent policies
-MODEL_PATH = "exp_results/wildfire/ippo_test_13Aug_run2/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_8ffbe_00000_0_2024-09-01_23-12-26/checkpoint_001386/checkpoint-1386"
-PARAMS_PATH = "exp_results/wildfire/ippo_test_13Aug_run2/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_8ffbe_00000_0_2024-09-01_23-12-26/params copy.json"
+MODEL_PATH = "exp_results/wildfire/ippo_test_10Sep_run2/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_2d194_00000_0_2024-09-10_18-05-30/checkpoint_001738/checkpoint-1738"
+PARAMS_PATH = "exp_results/wildfire/ippo_test_10Sep_run2/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_2d194_00000_0_2024-09-10_18-05-30/params copy.json"
 
 # choose device on which PyTorch tensors will be allocated
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

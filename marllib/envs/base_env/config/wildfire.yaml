@@ -26,22 +26,21 @@ env_args:
   map_name: "wildfire"
   max_steps: 100
   size: 17
-  alpha: 0.17
-  beta: 0.91
+  alpha: 0.15
+  beta: 0.9
   delta_beta: 0.7
   num_agents: 2
-  agent_start_positions: [[4, 8], [12, 8]]
+  agent_start_positions: [[8, 8], [14, 2]]
   agent_colors: ["red", "blue"]
   initial_fire_size: 3
-  fire_in_top_half_only: False
   cooperative_reward: False
-  engineered_reward: False
+  selfishness_weight: 0.1
   render_selfish_region_boundaries: True
   log_selfish_region_metrics: True
-  selfish_region_xmin: [2, 11]
-  selfish_region_xmax: [6, 13]
-  selfish_region_ymin: [7, 6]
-  selfish_region_ymax: [9, 10]
+  selfish_region_xmin: [7, 13]
+  selfish_region_xmax: [9, 15]
+  selfish_region_ymin: [7, 1]
+  selfish_region_ymax: [9, 3]
 
 mask_flag: False
 global_state_flag: True    # True: fully observable env; False: can use when partial obs there if want to concatenate local obs as one global state. Check if we can keep this False but have no concatenation (partial obs without obs sharing).

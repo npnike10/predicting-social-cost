@@ -95,53 +95,54 @@ class AgentMetrics:
 
         # store experiment configuration and results
         self.exp_data = {
-            "config": {
-                "num_episodes_per_state": episodes_per_state,
-                "run": self.run,
-                "input_model_dir_mmdp": mmdp_model_path,
-                "input_params_dir_mmdp": mmdp_params_path,
-                "input_model_dir_mg": mg_model_path,
-                "input_params_dir_mg": mg_params_path,
-                "initial state identifiers": initial_state_identifiers,
-            },
+            "num_episodes_per_state": episodes_per_state,
+            "run": self.run,
+            "input_model_dir_mmdp": mmdp_model_path,
+            "input_params_dir_mmdp": mmdp_params_path,
+            "input_model_dir_mg": mg_model_path,
+            "input_params_dir_mg": mg_params_path,
+            "initial state identifiers": initial_state_identifiers,
         }
 
         # compile select_action function for faster execution at runtime
         self.select_action_opt = torch.compile(select_action, mode="reduce-overhead")
 
     def state_visitation_heatmaps(self, initial_fire_vertices, selfish_region_vertices):
-        """Create heatmaps of state visitation frequencies for MG and MMDP agents."""
+        """Create heatmaps of state visitation frequencies for MG and MMDP agents.
+
+        Parameters
+        ----------
+        initial_fire_vertices : list[tuple]
+            vertices of polygon formed by initial state identifiers
+        selfish_region_vertices : list[list[tuple]]
+            vertices of agents' selfish regions, in order of increasing agent index
+        """
         env = self.env
         device = self.device
 
         # create directories to store results
-        mmdp_results_path = f"policy_eval/results/{self.mmdp_policy}_policy/strategy_metrics/visitation_maps"
-        mg_results_path = f"policy_eval/results/{self.mg_policy}_policy/strategy_metrics/visitation_maps"
-        if not os.path.exists(mmdp_results_path):
-            os.makedirs(mmdp_results_path)
-        if not os.path.exists(mg_results_path):
-            os.makedirs(mg_results_path)
+        RESULTS_PATH = (
+            "policy_eval/results/visitation_maps"  # directory to store results
+        )
+        if not os.path.exists(RESULTS_PATH):
+            os.makedirs(RESULTS_PATH)
 
         # create arrays to store final state visitation frequencies
         final_mg_heatmap = [
-            np.zeros((env.grid_size_without_walls, env.grid_size_without_walls))
-            for _ in range(env.num_agents)
+            np.zeros((env.grid_size, env.grid_size)) for _ in range(env.num_agents)
         ]
         final_mmdp_heatmap = [
-            np.zeros((env.grid_size_without_walls, env.grid_size_without_walls))
-            for _ in range(env.num_agents)
+            np.zeros((env.grid_size, env.grid_size)) for _ in range(env.num_agents)
         ]
 
         # loop over all initial fire locations. Initial states only differ in the location of fire, so initial state identifiers specify the location of initial fire.
         for location in self.initial_state_identifiers:
             # create arrays to store state visitation frequencies for current initial state
             mg_heatmap = [
-                np.zeros((env.grid_size_without_walls, env.grid_size_without_walls))
-                for _ in range(env.num_agents)
+                np.zeros((env.grid_size, env.grid_size)) for _ in range(env.num_agents)
             ]
             mmdp_heatmap = [
-                np.zeros((env.grid_size_without_walls, env.grid_size_without_walls))
-                for _ in range(env.num_agents)
+                np.zeros((env.grid_size, env.grid_size)) for _ in range(env.num_agents)
             ]
 
             # reset env to current initial state and get initial observations
@@ -159,8 +160,8 @@ class AgentMetrics:
 
             # record initial positions in heatmaps
             for i, agent in enumerate(env.agents):
-                mg_heatmap[i][agent.pos[1] - 1, agent.pos[0] - 1] += 1
-                mmdp_heatmap[i][agent.pos[1] - 1, agent.pos[0] - 1] += 1
+                mg_heatmap[i][agent.pos[1], agent.pos[0]] += 1
+                mmdp_heatmap[i][agent.pos[1], agent.pos[0]] += 1
 
             # run episodes to compute mg agent state visitation frequencies
             for _ in tqdm(
@@ -179,7 +180,7 @@ class AgentMetrics:
 
                     # record agent positions in heatmaps
                     for i, agent in enumerate(env.agents):
-                        mg_heatmap[i][agent.pos[1] - 1, agent.pos[0] - 1] += 1
+                        mg_heatmap[i][agent.pos[1], agent.pos[0]] += 1
 
                     # check if episode is done
                     if done:
@@ -211,7 +212,7 @@ class AgentMetrics:
 
                     # record agent positions in heatmaps
                     for i, agent in enumerate(env.agents):
-                        mmdp_heatmap[i][agent.pos[1] - 1, agent.pos[0] - 1] += 1
+                        mmdp_heatmap[i][agent.pos[1], agent.pos[0]] += 1
 
                     # check if episode is done
                     if done:
@@ -246,39 +247,34 @@ class AgentMetrics:
 
         # save experiment data
         with open(
-            f"{mmdp_results_path}/{self.run}_exp_data.json", "w", encoding="utf-8"
+            f"{RESULTS_PATH}/{self.run}_exp_data.json", "w", encoding="utf-8"
         ) as fp:
             json.dump(self.exp_data, fp, sort_keys=True, indent=4)
         with open(
-            f"{mg_results_path}/{self.run}_exp_data.json", "w", encoding="utf-8"
+            f"{RESULTS_PATH}/{self.mmdp_policy}_{self.mg_policy}_policies_{self.run}_exp_data.json",
+            "w",
+            encoding="utf-8",
         ) as fp:
             json.dump(self.exp_data, fp, sort_keys=True, indent=4)
 
-        # set range of x and y ticks for heatmaps
-        xticks = np.arange(
-            1,
-            env.grid_size_without_walls + 1,
-        )
-        yticks = np.arange(
-            1,
-            env.grid_size_without_walls + 1,
-        )
-        # vertices of agents' selfish regions, in order of increasing agent index
-        selfish_region_vertices = selfish_region_vertices
+        # Create a figure with subplots
+        fig, axes = plt.subplots(2, 2, figsize=(17, 12), dpi=480)
 
-        # create and save heatmaps
-        for i, hm in enumerate(final_mg_heatmap):
-            plt.figure(dpi=320)
+        # create mmdp heatmaps
+        for i, hm in enumerate(final_mmdp_heatmap):
+            ax = axes[0, i]
+            cbar_location = ["left", "right"]
             heatmap_plot = sns.heatmap(
                 hm,
                 cmap="GnBu",
-                xticklabels=xticks,
-                yticklabels=yticks,
                 vmin=np.min(hm),
                 vmax=np.max(hm),
+                ax=ax,
+                cbar_kws=dict(use_gridspec=False, location=cbar_location[i]),
             )
-            ax = heatmap_plot.get_figure().axes[0]
-            initial_fire_vertices = initial_fire_vertices  # vertices of polygon formed by initial state identifiers
+            heatmap_plot.xaxis.tick_top()
+
+            # create patches for initial fire, selfish regions, agent initial positions and walls
             initial_fire_patch = patches.Polygon(
                 xy=initial_fire_vertices,
                 closed=True,
@@ -286,18 +282,6 @@ class AgentMetrics:
                 facecolor="none",
                 linewidth=1,
             )
-            ax.add_patch(initial_fire_patch)
-            initial_position_patch = patches.Circle(
-                xy=(
-                    env.agent_start_positions[i][0] + 0.5,
-                    env.agent_start_positions[i][1] + 0.5,
-                ),
-                radius=0.2,
-                edgecolor=f"{env.agent_colors[i]}",
-                facecolor="none",
-                linewidth=7,
-            )
-            ax.add_patch(initial_position_patch)
             selfish_region_patch = patches.Polygon(
                 xy=selfish_region_vertices[i],
                 closed=True,
@@ -305,41 +289,81 @@ class AgentMetrics:
                 facecolor="none",
                 linewidth=1,
             )
-            ax.add_patch(selfish_region_patch)
-            heatmap_plot.set(
-                title=f"Average State Visitation Frequencies of MG Agent {i}",
+            upper_wall_patch = patches.Rectangle(
+                xy=(0, 0),
+                width=env.grid_size,
+                height=1,
+                edgecolor="gray",
+                facecolor="gray",
             )
-            plt.savefig(f"{mg_results_path}/{self.run}_mg_agent{i}.png")
-        for i, hm in enumerate(final_mmdp_heatmap):
-            plt.figure(dpi=320)
+            lower_wall_patch = patches.Rectangle(
+                xy=(0, env.grid_size - 1),
+                width=env.grid_size,
+                height=1,
+                edgecolor="gray",
+                facecolor="gray",
+            )
+            left_wall_patch = patches.Rectangle(
+                xy=(0, 0),
+                width=1,
+                height=env.grid_size,
+                edgecolor="gray",
+                facecolor="gray",
+            )
+            right_wall_patch = patches.Rectangle(
+                xy=(env.grid_size - 1, 0),
+                width=1,
+                height=env.grid_size,
+                edgecolor="gray",
+                facecolor="gray",
+            )
+            initial_position_patch = patches.Circle(
+                xy=(
+                    env.agent_start_positions[i][0] + 0.5,
+                    env.agent_start_positions[i][1] + 0.5,
+                ),
+                radius=0.2,
+                edgecolor="olive",
+                facecolor="none",
+                linewidth=7,
+            )
+
+            # add patches to heatmap plot
+            ax.add_patch(initial_fire_patch)
+            ax.add_patch(initial_position_patch)
+            ax.add_patch(selfish_region_patch)
+            ax.add_patch(upper_wall_patch)
+            ax.add_patch(lower_wall_patch)
+            ax.add_patch(left_wall_patch)
+            ax.add_patch(right_wall_patch)
+
+            # set plot title and save plot
+            ax.set_title(
+                f"Average State Visitation Frequencies of MMDP Agent {i}",
+            )
+
+        # create mg heatmaps
+        for i, hm in enumerate(final_mg_heatmap):
+            ax = axes[1, i]
+            cbar_location = ["left", "right"]
             heatmap_plot = sns.heatmap(
                 hm,
                 cmap="GnBu",
-                xticklabels=xticks,
-                yticklabels=yticks,
                 vmin=np.min(hm),
                 vmax=np.max(hm),
+                ax=ax,
+                cbar_kws=dict(use_gridspec=False, location=cbar_location[i]),
             )
-            ax = heatmap_plot.get_figure().axes[0]
-            polygon_patch = patches.Polygon(
+            heatmap_plot.xaxis.tick_top()
+
+            # create patches for initial fire, selfish regions, agent initial positions and walls
+            initial_fire_patch = patches.Polygon(
                 xy=initial_fire_vertices,
                 closed=True,
                 edgecolor="orange",
                 facecolor="none",
                 linewidth=1,
             )
-            ax.add_patch(polygon_patch)
-            initial_position_patch = patches.Circle(
-                xy=(
-                    env.agent_start_positions[i][0] + 0.5,
-                    env.agent_start_positions[i][1] + 0.5,
-                ),
-                radius=0.2,
-                edgecolor="white",
-                facecolor="none",
-                linewidth=7,
-            )
-            ax.add_patch(initial_position_patch)
             selfish_region_patch = patches.Polygon(
                 xy=selfish_region_vertices[i],
                 closed=True,
@@ -347,11 +371,63 @@ class AgentMetrics:
                 facecolor="none",
                 linewidth=1,
             )
-            ax.add_patch(selfish_region_patch)
-            heatmap_plot.set(
-                title=f"Average State Visitation Frequencies of MMDP Agent {i}",
+            upper_wall_patch = patches.Rectangle(
+                xy=(0, 0),
+                width=env.grid_size,
+                height=1,
+                edgecolor="gray",
+                facecolor="gray",
             )
-            plt.savefig(f"{mmdp_results_path}/{self.run}_mmdp_agent{i}.png")
+            lower_wall_patch = patches.Rectangle(
+                xy=(0, env.grid_size - 1),
+                width=env.grid_size,
+                height=1,
+                edgecolor="gray",
+                facecolor="gray",
+            )
+            left_wall_patch = patches.Rectangle(
+                xy=(0, 0),
+                width=1,
+                height=env.grid_size,
+                edgecolor="gray",
+                facecolor="gray",
+            )
+            right_wall_patch = patches.Rectangle(
+                xy=(env.grid_size - 1, 0),
+                width=1,
+                height=env.grid_size,
+                edgecolor="gray",
+                facecolor="gray",
+            )
+            initial_position_patch = patches.Circle(
+                xy=(
+                    env.agent_start_positions[i][0] + 0.5,
+                    env.agent_start_positions[i][1] + 0.5,
+                ),
+                radius=0.2,
+                edgecolor=f"{env.agent_colors[i]}",
+                facecolor="none",
+                linewidth=7,
+            )
+
+            # add patches to heatmap plot
+            ax.add_patch(initial_fire_patch)
+            ax.add_patch(initial_position_patch)
+            ax.add_patch(selfish_region_patch)
+            ax.add_patch(upper_wall_patch)
+            ax.add_patch(lower_wall_patch)
+            ax.add_patch(left_wall_patch)
+            ax.add_patch(right_wall_patch)
+
+            # set plot title and save plot
+            ax.set_title(
+                f"Average State Visitation Frequencies of MG Agent {i}",
+            )
+
+        # save plots
+        plt.savefig(
+            f"{RESULTS_PATH}/{self.mmdp_policy}_{self.mg_policy}_policies_{self.run}.png"
+        )
 
     def distance_to_fire_boundary(self, agent_pos):
         """
@@ -619,7 +695,7 @@ class AgentMetrics:
         final_mmdp_metric /= len(self.initial_state_identifiers)
 
         # save exp config
-        exp_data = self.exp_data
+        exp_data = self.exp_data.copy()
         exp_data["final_mg_metric"] = final_mg_metric.tolist()
         exp_data["final_mmdp_metric"] = final_mmdp_metric.tolist()
         with open(
@@ -632,7 +708,6 @@ class AgentMetrics:
             f"{mg_results_path}/{self.run}_exp_config.json", "w", encoding="utf-8"
         ) as fp:
             json.dump(exp_data, fp, sort_keys=True, indent=4)
-
         return exp_data
 
     def distance_from_other_agents_metric(self):
@@ -799,7 +874,7 @@ class AgentMetrics:
         final_mmdp_metric /= len(self.initial_state_identifiers)
 
         # save experiment data
-        exp_data = self.exp_data
+        exp_data = self.exp_data.copy()
         exp_data["final_mg_metric"] = final_mg_metric.tolist()
         exp_data["final_mmdp_metric"] = final_mmdp_metric.tolist()
         with open(
@@ -1027,7 +1102,7 @@ class AgentMetrics:
         final_mmdp_metric /= len(self.initial_state_identifiers)
 
         # save experiment data
-        exp_data = self.exp_data
+        exp_data = self.exp_data.copy()
         exp_data["final_mg_metric"] = final_mg_metric.tolist()
         exp_data["final_mmdp_metric"] = final_mmdp_metric.tolist()
         with open(
@@ -1211,7 +1286,7 @@ class AgentMetrics:
         final_mmdp_metric /= len(self.initial_state_identifiers)
 
         # save experiment data
-        exp_data = self.exp_data
+        exp_data = self.exp_data.copy()
         exp_data["final_mg_metric"] = final_mg_metric.tolist()
         exp_data["final_mmdp_metric"] = final_mmdp_metric.tolist()
         with open(
@@ -1228,296 +1303,71 @@ class AgentMetrics:
     def make_spider_chart(self):
         """Create a radar chart to visualize the performance of agents."""
 
-        # # directories to store results
-        # mmdp_results_path = f"policy_eval/results/{self.mmdp_policy}_policy/strategy_metrics/spider_charts"
-        # mg_results_path = f"policy_eval/results/{self.mg_policy}_policy/strategy_metrics/spider_charts"
-        # if not os.path.exists(mmdp_results_path):
-        #     os.makedirs(mmdp_results_path)
-        # if not os.path.exists(mg_results_path):
-        #     os.makedirs(mg_results_path)
+        # directories to store results
+        mmdp_results_path = f"policy_eval/results/{self.mmdp_policy}_policy/strategy_metrics/spider_charts"
+        mg_results_path = f"policy_eval/results/{self.mg_policy}_policy/strategy_metrics/spider_charts"
+        if not os.path.exists(mmdp_results_path):
+            os.makedirs(mmdp_results_path)
+        if not os.path.exists(mg_results_path):
+            os.makedirs(mg_results_path)
 
-        # # compute metrics
-        # data_ba = self.boundary_attack_metric()
-        # data_do = self.distance_from_other_agents_metric()
-        # data_df = self.distance_from_selfish_region_metric()
-        # data_tof = self.time_over_fire_metric()
-        # data_tof_sr = self.time_over_fire_metric(in_selfish_region=True)
+        # compute metrics
+        data_ba = self.boundary_attack_metric()
+        data_do = self.distance_from_other_agents_metric()
+        data_df = self.distance_from_selfish_region_metric()
+        data_tof = self.time_over_fire_metric()
+        data_tof_sr = self.time_over_fire_metric(in_selfish_region=True)
 
-        # # loop over MG agents
-        # for i in range(self.env.num_agents):
-        #     df_mg = pd.DataFrame(
-        #         dict(
-        #             r=[
-        #                 data_ba["final_mg_metric"][i],
-        #                 data_do["final_mg_metric"][i],
-        #                 data_df["final_mg_metric"][i],
-        #                 data_tof["final_mg_metric"][i],
-        #                 data_tof_sr["final_mg_metric"][i],
-        #             ],
-        #             theta=[
-        #                 "boundary attack metric",
-        #                 "distance from other agents",
-        #                 "distance from selfish region",
-        #                 "time over fire",
-        #                 "time over fire in selfish region",
-        #             ],
-        #         )
-        #     )
-        #     fig = px.line_polar(
-        #         df_mg,
-        #         r="r",
-        #         theta="theta",
-        #         line_close=True,
-        #         range_r=[0, 1],
-        #     )
-        #     fig.update_layout(
-        #         title_text=f"Performance Radar Chart of MG Agent {i}",
-        #         title_x=0.5,
-        #     )
-        #     fig.update_traces(
-        #         line_color="green",
-        #     )
-        #     fig.write_image(f"{mg_results_path}/{self.run}_spider_chart.png")
-
-        # # loop over MMDP agents
-        # for i in range(self.env.num_agents):
-        #     df_mmdp = pd.DataFrame(
-        #         dict(
-        #             r=[
-        #                 data_ba["final_mmdp_metric"][i],
-        #                 data_do["final_mmdp_metric"][i],
-        #                 data_df["final_mmdp_metric"][i],
-        #                 data_tof["final_mmdp_metric"][i],
-        #                 data_tof_sr["final_mmdp_metric"][i],
-        #             ],
-        #             theta=[
-        #                 "boundary attack metric",
-        #                 "distance from other agents",
-        #                 "distance from selfish region",
-        #                 "time over fire",
-        #                 "time over fire in selfish region",
-        #             ],
-        #         )
-        #     )
-        #     fig = px.line_polar(
-        #         df_mmdp,
-        #         r="r",
-        #         theta="theta",
-        #         line_close=True,
-        #         range_r=[0, 1],
-        #     )
-        #     fig.update_layout(
-        #         title_text=f"Performance Radar Chart of MMDP Agent {i}",
-        #         title_x=0.5,
-        #     )
-        #     fig.update_traces(
-        #         line_color="green",
-        #     )
-        #     fig.write_image(f"{mmdp_results_path}/{self.run}_spider_chart.png")
-
-        # # loop over agents to create a combined radar chart
-        # fig = make_subplots(rows=1, cols=2, specs=[[{"type": "polar"}] * 2] * 1)
-        # theta = [
-        #     "boundary attack metric",
-        #     "distance from other agents",
-        #     "distance from selfish region",
-        #     "time over fire",
-        #     "time over fire in selfish region",
-        # ]
-        # for i in range(self.env.num_agents):
-        #     r_mmdp = [
-        #         data_ba["final_mmdp_metric"][i],
-        #         data_do["final_mmdp_metric"][i],
-        #         data_df["final_mmdp_metric"][i],
-        #         data_tof["final_mmdp_metric"][i],
-        #         data_tof_sr["final_mmdp_metric"][i],
-        #     ]
-        #     r_mg = [
-        #         data_ba["final_mg_metric"][i],
-        #         data_do["final_mg_metric"][i],
-        #         data_df["final_mg_metric"][i],
-        #         data_tof["final_mg_metric"][i],
-        #         data_tof_sr["final_mg_metric"][i],
-        #     ]
-        #     fig.add_trace(
-        #         go.Scatterpolar(
-        #             theta=theta,
-        #             r=r_mg,
-        #             range_r=[0, 1],
-        #             name=f"MG Agent {i}",
-        #         ),
-        #         row=1,
-        #         col=i + 1,
-        #     )
-        #     fig.add_trace(
-        #         go.Scatterpolar(
-        #             theta=theta,
-        #             r=r_mmdp,
-        #             range_r=[0, 1],
-        #             name=f"MMDP Agent {i}",
-        #         ),
-        #         row=1,
-        #         col=i + 1,
-        #     )
-        # fig.update_layout(
-        #     title_text="Performance Radar Chart of MG and MMDP Agents",
-        #     title_x=0.5,
-        # )
-        # fig.write_image(f"{mg_results_path}/{self.run}_spider_chart.png")
-        # fig.write_image(f"{mmdp_results_path}/{self.run}_spider_chart.png")
-
+        # loop over agents to create a combined radar chart
         fig = make_subplots(
-            rows=1, cols=2, specs=[[{"type": "polar"}] * 2] * 1, horizontal_spacing=0.3
+            rows=1, cols=2, specs=[[{"type": "polar"}] * 2] * 1, horizontal_spacing=0.2
         )
         theta = [
-            "boundary attack metric",
-            "distance from other agents",
-            "distance from selfish region",
-            "time over fire",
-            "time over fire in selfish region",
+            r"$BA$",
+            r"$d_{\text{agents}}$",
+            r"$d_{\text{SR}}$",
+            r"$TOF$",
+            r"$TOF_{\text{SR}}$",
+            r"$BA$",
         ]
-
-        r_mg_0 = [
-            0.0709298534214736,
-            0.38009882994833877,
-            0.0365547056592087,
-            0.07393772135074347,
-            0.04216015667770054,
-        ]
-
-        r_mg_1 = [
-            0.08054403376858947,
-            0.38009882994833877,
-            0.1664404536855557,
-            0.018508987162709198,
-            0.0007424789467018845,
-        ]
-
-        r_mmdp_0 = [
-            0.07024807228964867,
-            0.38184430089314797,
-            0.038557489158686696,
-            0.07806259323501653,
-            0.037616473421595006,
-        ]
-        r_mmdp_1 = [
-            0.07127706144333813,
-            0.38184430089314797,
-            0.15441403645095172,
-            0.014663530506256336,
-            0,
-        ]
-        fig.add_trace(
-            go.Scatterpolar(
-                theta=theta,
-                r=r_mg_0,
-                name=f"MG Agent 0",
-            ),
-            row=1,
-            col=1,
-        )
-        fig.add_trace(
-            go.Scatterpolar(
-                theta=theta,
-                r=r_mmdp_0,
-                name=f"MMDP Agent 0",
-            ),
-            row=1,
-            col=1,
-        )
-        fig.add_trace(
-            go.Scatterpolar(
-                theta=theta,
-                r=r_mg_1,
-                name=f"MG Agent 1",
-            ),
-            row=1,
-            col=2,
-        )
-        fig.add_trace(
-            go.Scatterpolar(
-                theta=theta,
-                r=r_mmdp_1,
-                name=f"MMDP Agent 1",
-            ),
-            row=1,
-            col=2,
-        )
+        for i in range(self.env.num_agents):
+            r_mmdp = [
+                data_ba["final_mmdp_metric"][i],
+                data_do["final_mmdp_metric"][i],
+                data_df["final_mmdp_metric"][i],
+                data_tof["final_mmdp_metric"][i],
+                data_tof_sr["final_mmdp_metric"][i],
+                data_ba["final_mmdp_metric"][i],
+            ]
+            r_mg = [
+                data_ba["final_mg_metric"][i],
+                data_do["final_mg_metric"][i],
+                data_df["final_mg_metric"][i],
+                data_tof["final_mg_metric"][i],
+                data_tof_sr["final_mg_metric"][i],
+                data_ba["final_mg_metric"][i],
+            ]
+            fig.add_trace(
+                go.Scatterpolar(
+                    theta=theta,
+                    r=r_mg,
+                    name=f"MG Agent {i}",
+                    fill="toself",
+                ),
+                row=1,
+                col=i + 1,
+            )
+            fig.add_trace(
+                go.Scatterpolar(
+                    theta=theta,
+                    r=r_mmdp,
+                    name=f"MMDP Agent {i}",
+                    fill="toself",
+                ),
+                row=1,
+                col=i + 1,
+            )
         fig.for_each_annotation(lambda a: a.update(text=f"<b>{a.text}</b>"))
         fig.update_annotations(font=dict(family="Helvetica", size=12))
-        # fig = px.line_polar(
-        #     df_mg,
-        #     r="r",
-        #     theta="theta",
-        #     line_close=True,
-        #     range_r=[0, 0.5],
-        # )
-        # fig.update_layout(
-        #     title_text="Performance Radar Chart of MG Agent 0",
-        #     title_x=0.5,
-        # )
-        # fig.update_traces(
-        #     line_color="green",
-        # )
-        fig.write_image("mmdp+mg_0_spider_chart.png")
-
-
-if __name__ == "__main__":
-    # instantiate environment
-    env = gym.make(
-        "wildfire-v0",
-        size=17,
-        alpha=0.15,
-        beta=0.9,
-        delta_beta=0.7,
-        num_agents=2,
-        agent_start_positions=[[4, 6], [10, 12]],
-        agent_colors=("red", "blue"),
-        initial_fire_size=3,
-        max_steps=100,
-        cooperative_reward=True,
-        selfish_region_xmin=[2, 8],
-        selfish_region_xmax=[6, 12],
-        selfish_region_ymin=[4, 10],
-        selfish_region_ymax=[8, 14],
-        log_selfish_region_metrics=True,
-    )
-    # parameters
-    gamma = 0.99  # discount factor
-    num_episodes_per_state = 20  # number of episodes to run for each initial state
-    initial_state_identifiers = [
-        (12, 2),
-        (13, 2),
-        (14, 2),
-    ]  # specifies the initial states over which to average the state visitation frequencies
-    initial_fire_vertices = [
-        (11, 1),
-        (14, 1),
-        (14, 2),
-        (11, 2),
-    ]
-    selfish_region_vertices = [
-        [(1, 3), (1, 8), (6, 8), (6, 3)],
-        [(7, 9), (7, 14), (12, 14), (12, 9)],
-    ]
-    mmdp_policy = "15Jul_run1"
-    mg_policy = "15Jul_run2"
-    # directories needed to load agent policies
-    mg_model_path = "exp_results/wildfire/idqn_test_15Jul_run2/idqn_mlp_wildfire/IDQNTrainer_wildfire_wildfire_1c86d_00000_0_2024-07-16_22-53-22/checkpoint_008000/checkpoint-8000"
-    mg_params_path = "exp_results/wildfire/idqn_test_15Jul_run2/idqn_mlp_wildfire/IDQNTrainer_wildfire_wildfire_1c86d_00000_0_2024-07-16_22-53-22/params copy.json"
-    mmdp_model_path = "exp_results/wildfire/idqn_test_15Jul_run1/idqn_mlp_wildfire/IDQNTrainer_wildfire_wildfire_b1b51_00000_0_2024-07-15_15-49-13/checkpoint_009662/checkpoint-9662"
-    mmdp_params_path = "exp_results/wildfire/idqn_test_15Jul_run1/idqn_mlp_wildfire/IDQNTrainer_wildfire_wildfire_b1b51_00000_0_2024-07-15_15-49-13/params copy.json"
-    aviz = AgentMetrics(
-        env,
-        gamma,
-        num_episodes_per_state,
-        initial_state_identifiers,
-        mmdp_policy,
-        mg_policy,
-        mmdp_model_path,
-        mmdp_params_path,
-        mg_model_path,
-        mg_params_path,
-    )
-    # aviz.state_visitation_heatmaps(initial_fire_vertices, selfish_region_vertices)
-    aviz.make_spider_chart()
+        fig.write_image(f"{mg_results_path}/{self.run}_spider_chart.png", scale=8)
+        fig.write_image(f"{mmdp_results_path}/{self.run}_spider_chart.png", scale=8)

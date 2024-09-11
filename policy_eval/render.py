@@ -16,27 +16,27 @@ from utils import (
 # initialize environment. Set the arguments as desired.
 env = gym.make(
     "wildfire-v0",
-    max_steps=100,
     size=17,
     alpha=0.15,
     beta=0.9,
     delta_beta=0.7,
     num_agents=2,
-    agent_start_positions=((12, 6), (12, 13)),
+    agent_start_positions=((8, 8), (14, 2)),
     initial_fire_size=3,
-    cooperative_reward=False,
-    render_selfish_region_boundaries=True,
+    max_steps=100,
+    cooperative_reward=True,
+    selfish_region_xmin=[7, 13],
+    selfish_region_xmax=[9, 15],
+    selfish_region_ymin=[7, 1],
+    selfish_region_ymax=[9, 3],
     log_selfish_region_metrics=True,
-    selfish_region_xmin=[11, 11],
-    selfish_region_xmax=[13, 13],
-    selfish_region_ymin=[5, 12],
-    selfish_region_ymax=[7, 14],
+    render_selfish_region_boundaries=True,
 )
 
 # directories needed to load agent policies
-MODEL_PATH = "exp_results/wildfire/ippo_test_13Aug_run2/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_8ffbe_00000_0_2024-09-01_23-12-26/checkpoint_001386/checkpoint-1386"
-PARAMS_PATH = "exp_results/wildfire/ippo_test_13Aug_run2/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_8ffbe_00000_0_2024-09-01_23-12-26/params copy.json"
-SHARED_POLICY = False  # whether agents share the same policy
+MODEL_PATH = "exp_results/wildfire/ippo_test_13Aug_run5/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_a28c2_00000_0_2024-09-01_23-05-48/checkpoint_001411/checkpoint-1411"
+PARAMS_PATH = "exp_results/wildfire/ippo_test_13Aug_run5/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_a28c2_00000_0_2024-09-01_23-05-48/params copy.json"
+SHARED_POLICY = True  # whether agents share the same policy
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 STOCHASTIC_POLICY = True  # whether policy is stochastic
 
