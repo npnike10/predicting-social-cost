@@ -247,10 +247,6 @@ class AgentMetrics:
 
         # save experiment data
         with open(
-            f"{RESULTS_PATH}/{self.run}_exp_data.json", "w", encoding="utf-8"
-        ) as fp:
-            json.dump(self.exp_data, fp, sort_keys=True, indent=4)
-        with open(
             f"{RESULTS_PATH}/{self.mmdp_policy}_{self.mg_policy}_policies_{self.run}_exp_data.json",
             "w",
             encoding="utf-8",
