@@ -3,6 +3,9 @@ from tqdm import tqdm
 import torch
 import numpy as np
 from eval import load_model  # pylint: disable=import-error
+from wildfire_environment.utils.misc import (  # pylint: disable=wrong-import-position
+    get_initial_fire_coordinates,
+)
 
 
 def obs_to_torch(ma_obs, device):
@@ -146,7 +149,7 @@ def run_episodes(
     gamma : int
         discount factor
     ma_obs : dict[str, dict[str, torch.Tensor]]
-        observation dictionary where each key is the agent id and each value is a dictionary containing agent observation (the agent centered toroidal view of grid) and state.
+        initial observation dictionary where each key is the agent id and each value is a dictionary containing agent observation (the agent centered toroidal view of grid) and state.
     state : torch.Tensor
         the initial state of the environment for every episode
     device : str
@@ -231,3 +234,143 @@ def run_episodes(
             obs, _ = env.reset(state=state.cpu().numpy())
             ma_obs = process_observation(obs, device, state)
     return episode_returns
+
+def generate_time_series(
+    num_episodes,
+    env,
+    model_path,
+    params_path,
+    shared_policy,
+    handcrafted_policy=None,
+    stochastic_policy=False,
+    initial_state_identifier=None,
+    demarcate_episodes=False,
+):
+    """Run specified number of Monte Carlo episodes in the environment starting from given state and following given agent policies.
+
+    Parameters
+    ----------
+    num_episodes : int
+        number of Monte Carlo episodes to run
+    env : MultiGridEnv
+        environment in which to run episodes
+    model_path : str
+        path to the file containing agent policies' models
+    params_path : str
+        path to the params file for the policy training run. The file contains a dictionary. The dictionary in file at params_path should not contain the key "callbacks" and corresponding value. A copy of the original params file may be used for this purpose.
+    shared_policy : bool
+        whether policy sharing among agents is enabled
+    handcrafted_policy : str, optional
+        list of actions specifying the handcrafted policy. If episode steps is greater than length of list, actions are chosen by looping over list. By default None.
+    stochastic_policy : bool, optional
+        whether policy is stochastic.
+    initial_state_identifier : tuple[int,int], optional
+        specifies initial state of the environment. If None, the initial state is sampled uniformly at random from the initial state distribution. By default None.
+    demarcate_episodes : bool, optional
+        whether to demarcate time series of different episodes using a string 'NA' in between each episode series. By default False.
+    
+    Returns
+    -------
+    agent1_time_series : ndarray
+        time series of agent 1 positions. ndarray of shape (N, 2) where N is the total number of time steps across all episodes and 2 is the number of coordinates in the position vector.
+    agent2_time_series : ndarray
+        time series of agent 2 positions. ndarray of shape (N, 2) where N is the total number of time steps across all episodes and 2 is the number of coordinates in the position vector.
+    """
+
+    # choose device on which PyTorch tensors will be allocated
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # reset env
+    if initial_state_identifier:
+        trees_on_fire = get_initial_fire_coordinates(
+            initial_state_identifier[0],
+            initial_state_identifier[1],
+            env.grid_size,
+            env.initial_fire_size,
+        )
+        initial_state = torch.tensor(
+            env.construct_state(trees_on_fire, env.agent_start_positions, 0),
+            dtype=torch.float32,
+        ).to(device)
+        obs, _ = env.reset(state=initial_state.cpu().numpy())
+        ma_obs = process_observation(obs, device, initial_state)
+    else:
+        obs, _ = env.reset()
+        state = torch.tensor(env.get_state(), dtype=torch.float32).to(device)
+        ma_obs = process_observation(obs, device, state)
+
+    # load agent policies
+    agent_policies = load_agent_policies(
+        model_path, params_path, shared_policy=shared_policy, num_agents=env.num_agents
+    )
+
+    # initialize lists to store positions
+    agent1_time_series = []
+    agent2_time_series = []
+    if not demarcate_episodes:
+        agent1_time_series_array = np.empty((num_episodes,), dtype=object)
+        agent2_time_series_array = np.empty((num_episodes,), dtype=object)
+
+    # add initial positions to time series
+    agent1_pos = list(env.agents[0].pos)
+    agent2_pos = list(env.agents[1].pos)
+    agent1_time_series.append(agent1_pos)
+    agent2_time_series.append(agent2_pos)
+
+    # run episodes
+    for eps in tqdm(range(num_episodes), desc=f"Running {num_episodes} episodes"):
+        
+        # episode loop
+        for t in count():
+            # step the environment
+            ma_action = select_action(
+                ma_obs, agent_policies, env.num_agents, stochastic_policy
+            )
+            if handcrafted_policy:
+                ma_action['0'] = handcrafted_policy[t % len(handcrafted_policy)]
+            next_obs, reward, done, _ = env.step(ma_action)
+
+            # update time series
+            agent1_pos = list(env.agents[0].pos)
+            agent2_pos = list(env.agents[1].pos)
+            agent1_time_series.append(agent1_pos)
+            agent2_time_series.append(agent2_pos)
+
+            # check if episode is done
+            if done:
+                if initial_state_identifier:
+                    obs, _ = env.reset(state=initial_state.cpu().numpy())
+                    ma_obs = process_observation(obs, device, initial_state)
+                else:
+                    obs, _ = env.reset(state=state.cpu().numpy())
+                    ma_obs = process_observation(obs, device, state)
+                
+                # add demarcation between episodes
+                if demarcate_episodes:
+                    agent1_time_series.append(["NA", "NA"])
+                    agent2_time_series.append(["NA", "NA"])
+                else:
+                    agent1_time_series_array[eps] = np.array(agent1_time_series)
+                    agent2_time_series_array[eps] = np.array(agent2_time_series)
+                    agent1_time_series = []
+                    agent2_time_series = []
+                if eps<num_episodes-1:
+                    # add initial positions to time series
+                    agent1_pos = list(env.agents[0].pos)
+                    agent2_pos = list(env.agents[1].pos)
+                    agent1_time_series.append(agent1_pos)
+                    agent2_time_series.append(agent2_pos)
+                break
+
+            # process next observation
+            next_state = torch.tensor(env.get_state(), dtype=torch.float32).to(device)
+            ma_obs = process_observation(next_obs, device, next_state)
+
+    if demarcate_episodes:
+        agent1_time_series = np.array(agent1_time_series)
+        agent2_time_series = np.array(agent2_time_series)
+    else:
+        agent1_time_series = agent1_time_series_array
+        agent2_time_series = agent2_time_series_array
+
+    return agent1_time_series, agent2_time_series

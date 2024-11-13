@@ -13,7 +13,7 @@ model = marl.build_model(
     alg,
     {
         "core_arch": "mlp",
-        "encode_layer": "256-256",
+        "encode_layer": "128-128",
     },
 )
 
@@ -27,12 +27,12 @@ alg.fit(
     # },
     stop={"timesteps_total": 25000000},
     local_mode=False,
-    num_gpus=2,
-    num_workers=47,
+    num_gpus=3,
+    num_workers=23,
     share_policy="individual",
     evaluation_interval=5,
     evaluation_num_episodes=20,
     checkpoint_freq=500,
     seed=np.random.randint(low=0, high=10000),
-    local_dir="exp_results/wildfire/ippo_test_10Sep_run10",
+    local_dir="exp_results/wildfire/ippo_test_13Aug_run5",
 )

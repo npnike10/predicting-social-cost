@@ -33,8 +33,8 @@ env_args:
   agent_start_positions: [[8, 8], [14, 2]]
   agent_colors: ["red", "blue"]
   initial_fire_size: 3
-  cooperative_reward: False
-  selfishness_weight: 0.1
+  cooperative_reward: True
+  selfishness_weight: 0.2
   render_selfish_region_boundaries: True
   log_selfish_region_metrics: True
   selfish_region_xmin: [7, 13]
