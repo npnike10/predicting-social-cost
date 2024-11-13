@@ -8,34 +8,34 @@ from ccm import save_time_series
 env = gym.make(
     "wildfire-v0",
     size=17,
-    alpha=0.15,
-    beta=0.9,
+    alpha=0.17,
+    beta=0.91,
     delta_beta=0.7,
     num_agents=2,
-    agent_start_positions=((8, 8), (14, 2)),
+    agent_start_positions=((4, 8), (12, 8)),
     initial_fire_size=3,
     max_steps=100,
     cooperative_reward=True,
-    selfish_region_xmin=[7, 13],
-    selfish_region_xmax=[9, 15],
-    selfish_region_ymin=[7, 1],
-    selfish_region_ymax=[9, 3],
+    selfish_region_xmin=[2, 11],
+    selfish_region_xmax=[6, 13],
+    selfish_region_ymin=[7, 6],
+    selfish_region_ymax=[9, 10],
     log_selfish_region_metrics=True,
 )
 # parameters
 gamma = 0.99  # discount factor
-num_episodes = 5  # number of episodes to perform for policy evaluation or agent metrics computation
+num_episodes = 1000  # number of episodes to perform for policy evaluation or agent metrics computation
 initial_state_identifiers = [
-        (14, 2),
+        (7, 9),
     ]  # specifies the initial states over which to average the state visitation frequencies
-mmdp_policy = "ippo_13Aug_run5"
-mg_policy = "ippo_13Aug_run6"
+mmdp_policy = "ippo_13Aug_run11"
+mg_policy = "ippo_13Aug_run12"
 stochastic_policy = True
 # directories needed to load agent policies
-mg_model_path = "exp_results/wildfire/ippo_test_13Aug_run6/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_b9bd5_00000_0_2024-09-01_23-06-27/checkpoint_001384/checkpoint-1384"
-mg_params_path = "exp_results/wildfire/ippo_test_13Aug_run6/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_b9bd5_00000_0_2024-09-01_23-06-27/params copy.json"
-mmdp_model_path = "exp_results/wildfire/ippo_test_13Aug_run5/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_a28c2_00000_0_2024-09-01_23-05-48/checkpoint_001411/checkpoint-1411"
-mmdp_params_path = "exp_results/wildfire/ippo_test_13Aug_run5/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_a28c2_00000_0_2024-09-01_23-05-48/params copy.json"
+mg_model_path = "exp_results/wildfire/ippo_test_13Aug_run12/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_7d8e9_00000_0_2024-09-02_17-27-08/checkpoint_001719/checkpoint-1719"
+mg_params_path = "exp_results/wildfire/ippo_test_13Aug_run12/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_7d8e9_00000_0_2024-09-02_17-27-08/params copy.json"
+mmdp_model_path = "exp_results/wildfire/ippo_test_13Aug_run11/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_f8c9c_00000_0_2024-09-02_17-23-25/checkpoint_001735/checkpoint-1735"
+mmdp_params_path = "exp_results/wildfire/ippo_test_13Aug_run11/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_f8c9c_00000_0_2024-09-02_17-23-25/params copy.json"
 COMPUTE_AGENT_METRICS = False  # whether to compute agent metrics
 COMPUTE_SOCIAL_COST = False  # whether to compute social cost
 EVALUALTE_POLICY = False  # whether to evaluate policy
@@ -70,7 +70,9 @@ if COMPUTE_AGENT_METRICS:
     # aviz.make_spider_chart()
 
 if CCM_TIME_SERIES:
-    handcrafted_policy = [4,4, 4, 4, 4, 4, 4, 3, 2, 2, 2, 2 ,2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 4, 4, 4, 4 , 4, 4, 4]
+    handcrafted_policy_scenario3 = [4,4, 4, 4, 4, 4, 4, 3, 2, 2, 2, 2 ,2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 4, 4, 4, 4 , 4, 4, 4]
+    handcrafted_policy_scenario1 = [4,4, 4, 4, 4, 4, 4, 4,4, 4, 4, 3,2, 2, 2, 2 ,2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3,4, 4, 4 ]
+    handcrafted_policy_scenario5 = [4, 4, 4, 3, 2, 2, 2, 2 ,2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 4, 4, 4, 4 , 4, 4, 4, 4, 4, 4, 4]
     save_time_series(
         num_episodes,
         env,
@@ -80,7 +82,7 @@ if CCM_TIME_SERIES:
         mg_params_path,
         mmdp_model_path,
         mmdp_params_path,
-        handcrafted_policy=handcrafted_policy,
+        handcrafted_policy=handcrafted_policy_scenario5,
         stochastic_policy=stochastic_policy,
         initial_state_identifier=initial_state_identifiers[0],
         demarcate_episodes=False,
