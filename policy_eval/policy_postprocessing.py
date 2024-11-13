@@ -1,7 +1,8 @@
 import gym
 import wildfire_environment
+
 # from agent_metrics import AgentMetrics
-from ccm import save_time_series
+from ccm import save_time_series, latent_ccm
 
 
 # instantiate environment
@@ -26,8 +27,8 @@ env = gym.make(
 gamma = 0.99  # discount factor
 num_episodes = 1000  # number of episodes to perform for policy evaluation or agent metrics computation
 initial_state_identifiers = [
-        (7, 9),
-    ]  # specifies the initial states over which to average the state visitation frequencies
+    (7, 9),
+]  # specifies the initial states over which to average the state visitation frequencies
 mmdp_policy = "ippo_13Aug_run11"
 mg_policy = "ippo_13Aug_run12"
 stochastic_policy = True
@@ -40,7 +41,8 @@ COMPUTE_AGENT_METRICS = False  # whether to compute agent metrics
 COMPUTE_SOCIAL_COST = False  # whether to compute social cost
 EVALUALTE_POLICY = False  # whether to evaluate policy
 VALUE_ESTIMATION_VS_SAMPLES = False  # whether to run value estimation vs samples code
-CCM_TIME_SERIES = True # whether to save agent position time series
+COMPUTE_CCM = True  # whether to compute CCM
+CCM_TIME_SERIES = False  # whether to save agent position time series
 
 if COMPUTE_AGENT_METRICS:
     initial_fire_vertices = [
@@ -69,21 +71,126 @@ if COMPUTE_AGENT_METRICS:
     aviz.state_visitation_heatmaps(initial_fire_vertices, selfish_region_vertices)
     # aviz.make_spider_chart()
 
-if CCM_TIME_SERIES:
-    handcrafted_policy_scenario3 = [4,4, 4, 4, 4, 4, 4, 3, 2, 2, 2, 2 ,2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 4, 4, 4, 4 , 4, 4, 4]
-    handcrafted_policy_scenario1 = [4,4, 4, 4, 4, 4, 4, 4,4, 4, 4, 3,2, 2, 2, 2 ,2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3,4, 4, 4 ]
-    handcrafted_policy_scenario5 = [4, 4, 4, 3, 2, 2, 2, 2 ,2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 4, 4, 4, 4 , 4, 4, 4, 4, 4, 4, 4]
-    save_time_series(
-        num_episodes,
-        env,
-        mg_policy,
-        mmdp_policy,
-        mg_model_path,
-        mg_params_path,
-        mmdp_model_path,
-        mmdp_params_path,
-        handcrafted_policy=handcrafted_policy_scenario5,
-        stochastic_policy=stochastic_policy,
-        initial_state_identifier=initial_state_identifiers[0],
-        demarcate_episodes=False,
-    )
+if CCM_TIME_SERIES or COMPUTE_CCM:
+    if CCM_TIME_SERIES:
+
+        handcrafted_policy_scenario3 = [
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            3,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            3,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+        ]
+        handcrafted_policy_scenario1 = [
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            3,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            3,
+            4,
+            4,
+            4,
+        ]
+        handcrafted_policy_scenario5 = [
+            4,
+            4,
+            4,
+            3,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            3,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+        ]
+        save_time_series(
+            num_episodes,
+            env,
+            mg_policy,
+            mmdp_policy,
+            mg_model_path,
+            mg_params_path,
+            mmdp_model_path,
+            mmdp_params_path,
+            handcrafted_policy=handcrafted_policy_scenario5,
+            stochastic_policy=stochastic_policy,
+            initial_state_identifier=initial_state_identifiers[0],
+            demarcate_episodes=False,
+        )
+    if COMPUTE_CCM:
+        latent_ccm(
+            mg_policy,
+            mmdp_policy,
+            num_episodes,
+            initial_state_identifier=initial_state_identifiers[0],
+            replicate_number=None,
+            demarcated_episodes=False,
+            episode_truncation_length=75,
+        )
