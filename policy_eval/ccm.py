@@ -2,20 +2,9 @@
 """
 
 import os
-import sys
-import json
-import gym
 import numpy as np
-from tqdm import tqdm
-import torch
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (  # pylint: disable=import-error, wrong-import-position
-    process_observation,
     generate_time_series
-)
-from wildfire_environment.utils.misc import (  # pylint: disable=wrong-import-position
-    get_initial_fire_coordinates,
 )
 
 def save_time_series(
