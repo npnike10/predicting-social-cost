@@ -27,7 +27,7 @@ env = gym.make(
     beta=0.9,
     delta_beta=0.7,
     num_agents=2,
-    agent_start_positions=((8, 8), (14, 2)),
+    agent_start_positions=((12, 6), (12, 13)),
     initial_fire_size=3,
     cooperative_reward=True,
 )

@@ -199,12 +199,13 @@ def filter_time_series(a1_time_series, a2_time_series, episode_truncation_length
     _type_
         _description_
     """
-    indices_to_delete = []
-    for i, array in enumerate(a1_time_series):
-        if len(array) < episode_truncation_length:
-            indices_to_delete.append(i)
-    a1_time_series = np.delete(a1_time_series, indices_to_delete, axis=0)
-    a2_time_series = np.delete(a2_time_series, indices_to_delete, axis=0)
+    if episode_truncation_length > 0:
+        indices_to_delete = []
+        for i, array in enumerate(a1_time_series):
+            if len(array) < episode_truncation_length:
+                indices_to_delete.append(i)
+        a1_time_series = np.delete(a1_time_series, indices_to_delete, axis=0)
+        a2_time_series = np.delete(a2_time_series, indices_to_delete, axis=0)
 
     a1_tensor = torch.stack(
         [
@@ -276,6 +277,8 @@ def compute_lccm(
     hiddens_skip_length=10,
 ):
     """Compute latent CCM."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     # Truncate episodes to make them uniform in length
     if episode_truncation_length < 0:
         raise ValueError("episode_truncation_length must be a non-negative integer")
@@ -285,13 +288,12 @@ def compute_lccm(
         )
 
     # discard episodes that are too short, perform length truncation and convert to torch tensors
-    if episode_truncation_length > 0:
-        a1_tensor, a2_tensor = filter_time_series(
-            a1_time_series, a2_time_series, episode_truncation_length
-        )
+    a1_tensor, a2_tensor = filter_time_series(
+        a1_time_series, a2_time_series, episode_truncation_length
+    )
 
-    a1_dataset = torch.utils.data.TensorDataset(a1_tensor)
-    a2_dataset = torch.utils.data.TensorDataset(a2_tensor)
+    a1_dataset = torch.utils.data.TensorDataset(a1_tensor.to(device))
+    a2_dataset = torch.utils.data.TensorDataset(a2_tensor.to(device))
 
     dl_a1 = torch.utils.data.DataLoader(
         a1_dataset, batch_size=batch_size, shuffle=False
@@ -305,15 +307,15 @@ def compute_lccm(
     hiddens = {}
     for side in ["Agent 1 Position", "Agent 2 Position"]:
         loss_criterion = torch.nn.MSELoss()
-        model = GRU_reconstruction(input_size=2, hidden_size=gru_hidden_size)
+        model = GRU_reconstruction(input_size=2, hidden_size=gru_hidden_size).to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
         for epoch in range(num_epochs):
             train_loss = 0
             for i, b in enumerate(dls[side]):
                 optimizer.zero_grad()
-                y_hat = model(b[0])
-                loss1 = loss_criterion(y_hat[:, :-1, :], b[0][:, 1:, :])
-                loss2 = loss_criterion(y_hat[:, :-2, :], b[0][:, 2:, :])
+                y_hat = model(b[0].to(device))
+                loss1 = loss_criterion(y_hat[:, :-1, :], b[0][:, 1:, :].to(device))
+                loss2 = loss_criterion(y_hat[:, :-2, :], b[0][:, 2:, :].to(device))
                 loss = loss1  # + 0.5*loss2)
                 loss.backward()
                 optimizer.step()
@@ -325,15 +327,14 @@ def compute_lccm(
         hidden_path = []
         for i, b in enumerate(dls[side]):
             optimizer.zero_grad()
-            y_hat = model.hidden_only(b[0])  # [:,:,:]
+            y_hat = model.hidden_only(b[0].to(device))  # [:,:,:]
             hidden_path.append(y_hat.detach())
 
         hiddens[side] = torch.cat(hidden_path).reshape(-1, y_hat.shape[-1])
 
-    print(hiddens["Agent 1 Position"].shape, hiddens["Agent 1 Position"][:5])
     sc1, sc2 = causal_inf.CCM_compute(
-        hiddens["X"].numpy()[::hiddens_skip_length],
-        hiddens["Y"].numpy()[::hiddens_skip_length],
+        hiddens["Agent 1 Position"].cpu().numpy()[::hiddens_skip_length],
+        hiddens["Agent 2 Position"].cpu().numpy()[::hiddens_skip_length],
     )
     return sc1, sc2
 

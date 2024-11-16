@@ -29,7 +29,7 @@ env = gym.make(
     beta=0.9,
     delta_beta=0.7,
     num_agents=2,
-    agent_start_positions=((8, 8), (14, 2)),
+    agent_start_positions=((12, 6), (12, 13)),
     initial_fire_size=3,
     cooperative_reward=True,
 )
@@ -39,27 +39,27 @@ GAMMA = 0.99  # discount factor
 NUM_EPISODES = (
     5000  # sample size to use for Monte Carlo estimate of value function at each state
 )
-NUM_WORKERS = 16  # number of workers to use for parallel processing
-POLICY = "ippo_10Sep_run2"  # policy to evaluate
-SHARED_POLICY = False  # whether agents share the same policy
+NUM_WORKERS = 23  # number of workers to use for parallel processing
+POLICY = "ippo_13Aug_run1"  # policy to evaluate
+SHARED_POLICY = True  # whether agents share the same policy
 STOCHASTIC_POLICY = True  # whether policy is stochastic
 RUN = "first_run"  # run name
 USE_LOGS = False  # whether to use saved return samples instead of collecting new samples to estimate value function
 LOG_PATH = None  # path to logged return samples
-results_path = f"policy_eval/results/{POLICY}_policy/value_function_estimates"  # directory to store results
-if not os.path.exists(results_path):
-    os.makedirs(results_path)
+results_path = f"policy_eval/results/value_functions/{POLICY}"  # directory to store results
+os.makedirs(results_path, exist_ok=True)
 if USE_LOGS:
     LOG_PATH = ""
     with open(LOG_PATH, "r", encoding="utf-8") as fp:
         state_wise_returns = json.load(fp)
 
 # directories needed to load agent policies
-MODEL_PATH = "exp_results/wildfire/ippo_test_10Sep_run2/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_2d194_00000_0_2024-09-10_18-05-30/checkpoint_001738/checkpoint-1738"
-PARAMS_PATH = "exp_results/wildfire/ippo_test_10Sep_run2/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_2d194_00000_0_2024-09-10_18-05-30/params copy.json"
+MODEL_PATH = "exp_results/wildfire/ippo_test_13Aug_run1/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_0d215_00000_0_2024-09-01_23-15-56/checkpoint_001408/checkpoint-1408"
+PARAMS_PATH = "exp_results/wildfire/ippo_test_13Aug_run1/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_0d215_00000_0_2024-09-01_23-15-56/params copy.json"
 
 # choose device on which PyTorch tensors will be allocated
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 
 # store experiment configuration and results
 exp_data = {

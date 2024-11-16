@@ -9,28 +9,28 @@ from ccm import save_time_series, latent_ccm
 env = gym.make(
     "wildfire-v0",
     size=17,
-    alpha=0.17,
-    beta=0.91,
+    alpha=0.15,
+    beta=0.9,
     delta_beta=0.7,
     num_agents=2,
-    agent_start_positions=((4, 8), (12, 8)),
+    agent_start_positions=((12, 6), (12, 13)),
     initial_fire_size=3,
     max_steps=100,
     cooperative_reward=True,
-    selfish_region_xmin=[2, 11],
-    selfish_region_xmax=[6, 13],
-    selfish_region_ymin=[7, 6],
-    selfish_region_ymax=[9, 10],
+    selfish_region_xmin=[11, 11],
+    selfish_region_xmax=[13, 13],
+    selfish_region_ymin=[5, 12],
+    selfish_region_ymax=[7, 14],
     log_selfish_region_metrics=True,
 )
 # parameters
 gamma = 0.99  # discount factor
 num_episodes = 1000  # number of episodes to perform for policy evaluation or agent metrics computation
 initial_state_identifiers = [
-    (7, 9),
+    (7, 12),
 ]  # specifies the initial states over which to average the state visitation frequencies
-mmdp_policy = "ippo_13Aug_run11"
-mg_policy = "ippo_13Aug_run12"
+mmdp_policy = "ippo_13Aug_run5"
+mg_policy = "ippo_13Aug_run6"
 stochastic_policy = True
 # directories needed to load agent policies
 mg_model_path = "exp_results/wildfire/ippo_test_13Aug_run12/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_7d8e9_00000_0_2024-09-02_17-27-08/checkpoint_001719/checkpoint-1719"
