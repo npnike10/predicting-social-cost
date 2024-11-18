@@ -9,7 +9,6 @@ import torch
 import numpy as np
 import gym
 import matplotlib.pyplot as plt
-import wildfire_environment
 from wildfire_environment.utils.misc import get_initial_fire_coordinates
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -34,28 +33,25 @@ env = gym.make(
 
 # parameters
 sample_size_list = np.arange(
-    1000, 250001, 1000
+    1000, 100001, 1000
 ).tolist()  # list of sample sizes to use for Monte Carlo estimate of value function. One sample requires one episode.
 GAMMA = 0.99  # discount factor
-NUM_WORKERS = 16  # number of workers to use for parallel processing
-POLICY = "ippo_23Aug_run2"  # policy to evaluate
-SHARED_POLICY = False  # whether agents share the same policy
+NUM_WORKERS = 15  # number of workers to use for parallel processing
+POLICY = "ippo_13Aug_run1"  # policy to evaluate
+SHARED_POLICY = True  # whether agents share the same policy
 STOCHASTIC_POLICY = True  # whether policy is stochastic
-INITIAL_STATE_IDENTIFIER = (
-    2,
-    2,
-)  # initial state identifier for state to be evaluated. If None, initial state is sampled from initial state distribution.
-ESTIMATE_EXPECTED_VALUE = False  # whether to estimate expected value. Expected value is the expectation of state value function over the initial state distribution.
-run = "second_run"  # run name
+INITIAL_STATE_IDENTIFIER = None # initial state identifier for state to be evaluated. If None, initial state is sampled from initial state distribution.
+ESTIMATE_EXPECTED_VALUE = True  # whether to estimate expected value. Expected value is the expectation of state value function over the initial state distribution.
+run = "first_run"  # run name
 if ESTIMATE_EXPECTED_VALUE:
-    run = f"expected_value_{run}"
-results_path = f"policy_eval/results/{POLICY}_policy/value_estimates_vs_num_samples"  # directory to store results
-if not os.path.exists(results_path):
-    os.makedirs(results_path)
+    results_path = f"policy_eval/results/expected_value_function/{POLICY}"  # directory to store results
+else:
+    results_path = f"policy_eval/results/value_estimate_for_diff_sample_size/{POLICY}"
+os.makedirs(results_path, exist_ok=True)
 
 # directories needed to load agent policies
-MODEL_PATH = "exp_results/wildfire/ippo_mpe_23Aug_run2/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_f7c4a_00000_0_2024-08-30_17-34-07/checkpoint_001388/checkpoint-1388"
-PARAMS_PATH = "exp_results/wildfire/ippo_mpe_23Aug_run2/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_f7c4a_00000_0_2024-08-30_17-34-07/params copy.json"
+MODEL_PATH = "exp_results/wildfire/ippo_test_13Aug_run1/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_0d215_00000_0_2024-09-01_23-15-56/checkpoint_001408/checkpoint-1408"
+PARAMS_PATH = "exp_results/wildfire/ippo_test_13Aug_run1/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_0d215_00000_0_2024-09-01_23-15-56/params copy.json"
 
 # choose device on which PyTorch tensors will be allocated
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -163,7 +159,7 @@ if __name__ == "__main__":
     with open(f"{results_path}/{run}_exp_data.json", "w", encoding="utf-8") as fp:
         json.dump(exp_data, fp, sort_keys=True, indent=4)
     with open(
-        f"{results_path}/{run}_state_wise_returns.json", "w", encoding="utf-8"
+        f"{results_path}/{run}_state_returns.json", "w", encoding="utf-8"
     ) as fp:
         json.dump(state_wise_returns, fp, sort_keys=True, indent=4)
 
