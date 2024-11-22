@@ -22,11 +22,11 @@ env = gym.make(
     "wildfire-v0",
     max_steps=100,
     size=17,
-    alpha=0.15,
-    beta=0.9,
+    alpha=0.17,
+    beta=0.91,
     delta_beta=0.7,
     num_agents=2,
-    agent_start_positions=((12, 6), (12, 13)),
+    agent_start_positions=((4, 8), (12, 8)),
     initial_fire_size=3,
     cooperative_reward=True,
 )
@@ -36,9 +36,9 @@ sample_size_list = np.arange(
     1000, 100001, 1000
 ).tolist()  # list of sample sizes to use for Monte Carlo estimate of value function. One sample requires one episode.
 GAMMA = 0.99  # discount factor
-NUM_WORKERS = 15  # number of workers to use for parallel processing
-POLICY = "ippo_13Aug_run1"  # policy to evaluate
-SHARED_POLICY = True  # whether agents share the same policy
+NUM_WORKERS = 23  # number of workers to use for parallel processing
+POLICY = "ippo_13Aug_run12"  # policy to evaluate
+SHARED_POLICY = False  # whether agents share the same policy
 STOCHASTIC_POLICY = True  # whether policy is stochastic
 INITIAL_STATE_IDENTIFIER = None # initial state identifier for state to be evaluated. If None, initial state is sampled from initial state distribution.
 ESTIMATE_EXPECTED_VALUE = True  # whether to estimate expected value. Expected value is the expectation of state value function over the initial state distribution.
@@ -50,8 +50,8 @@ else:
 os.makedirs(results_path, exist_ok=True)
 
 # directories needed to load agent policies
-MODEL_PATH = "exp_results/wildfire/ippo_test_13Aug_run1/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_0d215_00000_0_2024-09-01_23-15-56/checkpoint_001408/checkpoint-1408"
-PARAMS_PATH = "exp_results/wildfire/ippo_test_13Aug_run1/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_0d215_00000_0_2024-09-01_23-15-56/params copy.json"
+MODEL_PATH = "exp_results/wildfire/ippo_test_13Aug_run12/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_7d8e9_00000_0_2024-09-02_17-27-08/checkpoint_001719/checkpoint-1719"
+PARAMS_PATH = "exp_results/wildfire/ippo_test_13Aug_run12/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_7d8e9_00000_0_2024-09-02_17-27-08/params copy.json"
 
 # choose device on which PyTorch tensors will be allocated
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

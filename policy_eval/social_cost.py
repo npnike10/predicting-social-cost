@@ -10,42 +10,53 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # parameters
 GRID_SIZE = 17  # size of the square gridworld (gridworld includes walls)
 INITIAL_FIRE_SIZE = 3  # side of the square shaped initial fire region
-MMDP_POLICY = "ippo_13Aug_run11"
-MG_POLICY = "ippo_13Aug_run12"
+MMDP_POLICY = "ippo_13Aug_run1"
+MG_POLICY = "ippo_13Aug_run2"
 REWARD_FUNCTION_TYPE = "negative"  # whether the reward function is always positive or always negative. This is used to determine the acceptable range of the social costs.
 MMDP_VALUE_FUNCTION_RUN = (
     "first_run"  # specifies the value function of MMDP policy to use
 )
 MG_VALUE_FUNCTION_RUN = "first_run"  # specifies the value function of MG policy to use
-EXPECTED_VALUES = None  # list containing expected values for MMDP and MG policies, in that order. Expected value is the expectation of state value function over the initial state distribution.
-RUN = "ippo_13Aug_run11_&_12"  # run name
-RESULTS_PATH = "policy_eval/results/social_cost"  # directory to store results
-if not os.path.exists(RESULTS_PATH):
-    os.makedirs(RESULTS_PATH)
-TOLERANCE = 1e-1  # tolerance for social cost validity check
+LOAD_EXPECTED_VALUES = True  # whether to load the expected values (baseline method in paper) for MMDP and MG policies. Expected value is the expectation of state value function over the initial state distribution.
+if LOAD_EXPECTED_VALUES:
+    MMDP_EXPECTED_VALUE_RUN = "first_run"
+    MG_EXPECTED_VALUE_RUN = "first_run"
+    MMDP_NUM_EPISODES_FOR_EXPECTED_VALUE_COMPUTATION = 100000  # number of episodes used for Monte Carlo estimation of MMDP expected value
+    MG_NUM_EPISODES_FOR_EXPECTED_VALUE_COMPUTATION = 100000  # number of episodes used for Monte Carlo estimation of MG expected value
+RESULTS_PATH = f"policy_eval/results/social_cost_heatmaps/{MMDP_POLICY}_&_{MG_POLICY}"  # directory to store results
+os.makedirs(RESULTS_PATH, exist_ok=True)
+TOLERANCE = 1e-2  # tolerance for social cost validity check
 ANNOTATE = False  # whether to annotate the heatmap with social cost values
 if ANNOTATE:
     RUN += "_annotated"
 
 # load value functions
-mmdp_value_path = f"policy_eval/results/{MMDP_POLICY}_policy/value_function_estimates/{MMDP_VALUE_FUNCTION_RUN}_value_function.json"
-mg_value_path = f"policy_eval/results/{MG_POLICY}_policy/value_function_estimates/{MG_VALUE_FUNCTION_RUN}_value_function.json"
+mmdp_value_path = f"policy_eval/results/value_functions/{MMDP_POLICY}/{MMDP_VALUE_FUNCTION_RUN}_value_function.json"
+mg_value_path = f"policy_eval/results/value_functions/{MG_POLICY}/{MG_VALUE_FUNCTION_RUN}_value_function.json"
 with open(mmdp_value_path, "r", encoding="utf-8") as fp:
     mmdp_value_function = json.load(fp)
 with open(mg_value_path, "r", encoding="utf-8") as fp:
     mg_value_function = json.load(fp)
 
+# load expected value to serve as baseline to compare against social costs
+if LOAD_EXPECTED_VALUES:
+    expected_values_path = f"policy_eval/results/expected_value_function/{MMDP_POLICY}/{MMDP_EXPECTED_VALUE_RUN}_exp_data.json"
+    with open(expected_values_path, "r", encoding="utf-8") as fp:
+        mmdp_expected_value = json.load(fp)["value estimates"][str(MMDP_NUM_EPISODES_FOR_EXPECTED_VALUE_COMPUTATION)]
+    expected_values_path = f"policy_eval/results/expected_value_function/{MG_POLICY}/{MG_EXPECTED_VALUE_RUN}_exp_data.json"
+    with open(expected_values_path, "r", encoding="utf-8") as fp:
+        mg_expected_value = json.load(fp)["value estimates"][str(MG_NUM_EPISODES_FOR_EXPECTED_VALUE_COMPUTATION)]
+
 # store experiment configuration and results
 exp_data = {
     "config": {
         "grid size": GRID_SIZE,
-        "run": RUN,
         "MMDP policy": MMDP_POLICY,
         "MG policy": MG_POLICY,
         "reward function type": REWARD_FUNCTION_TYPE,
         "MMDP value function run": MMDP_VALUE_FUNCTION_RUN,
         "MG value function run": MG_VALUE_FUNCTION_RUN,
-        "expected values": EXPECTED_VALUES,
+        "load expected values": LOAD_EXPECTED_VALUES,
         "tolerance": TOLERANCE,
     },
 }
@@ -53,11 +64,11 @@ exp_data = {
 # initialize array to store social cost for each initial state. Social cost of initial state with identifier (i,j) is stored at index (j,i) in the array.
 social_costs = np.zeros((GRID_SIZE, GRID_SIZE))
 # if expected values are specified
-if EXPECTED_VALUES:
+if LOAD_EXPECTED_VALUES:
     # compute state aggregated social cost, the expectation of social cost over initial state distribution.
-    state_aggregated_social_cost = EXPECTED_VALUES[0] / EXPECTED_VALUES[1]
+    state_aggregated_social_cost = mmdp_expected_value / mg_expected_value
     # initialize array to store difference between social cost of each initial state and state aggregated social cost.
-    delta_social_costs = np.zeros((GRID_SIZE - 2, GRID_SIZE - 2))
+    delta_social_costs = np.zeros((GRID_SIZE, GRID_SIZE))
 # loop over all initial states. (i,j), the initial state identifier is the position of the center cell of the fire square, if it is odd sized. If the fire square is even sized, the top-left corner cell is chosen as the initial state identifier.
 for i in range(GRID_SIZE):
     for j in range(GRID_SIZE):
@@ -79,16 +90,12 @@ for i in range(GRID_SIZE):
         social_costs[j, i] = (
             mmdp_value_function[str((i, j))] / mg_value_function[str((i, j))]
         )
-        if EXPECTED_VALUES:
+        if LOAD_EXPECTED_VALUES:
             # store difference between social cost of current initial state and state aggregated social cost
             delta_social_costs[j, i] = abs(
                 social_costs[j, i] - state_aggregated_social_cost
             )
 
-# store experiment data
-exp_data["social costs"] = social_costs.tolist()
-if EXPECTED_VALUES:
-    exp_data["state aggregated social cost"] = state_aggregated_social_cost
 
 # check if social costs are valid and set range of color bar for heatmap
 if REWARD_FUNCTION_TYPE == "positive":
@@ -134,12 +141,12 @@ mask[:, -1] = True  # Right column
 # Set boundary cells to NaN
 social_costs_with_nan = social_costs.copy()
 social_costs_with_nan[mask] = np.nan
-if EXPECTED_VALUES:
+if LOAD_EXPECTED_VALUES:
     delta_social_costs_with_nan = delta_social_costs.copy()
     delta_social_costs_with_nan[mask] = np.nan
 
 # Create state aggregated social cost heatmap
-if EXPECTED_VALUES:
+if LOAD_EXPECTED_VALUES:
     state_aggregated_social_costs_with_nan = state_aggregated_social_cost * np.ones(
         (GRID_SIZE, GRID_SIZE)
     )
@@ -176,9 +183,9 @@ heatmap_plot.set(
 )
 
 
-plt.savefig(f"{RESULTS_PATH}/{RUN}_social_costs.png")
+plt.savefig(f"{RESULTS_PATH}/social_costs.png")
 
-if EXPECTED_VALUES:
+if LOAD_EXPECTED_VALUES:
     plt.figure(dpi=320)
     heatmap_plot = sns.heatmap(
         delta_social_costs_with_nan,
@@ -197,7 +204,7 @@ if EXPECTED_VALUES:
         ylabel="y-coordinate of initial state identifier",
         title="Abs. Difference b/w Social Cost and State Aggregated Social Cost",
     )
-    plt.savefig(f"{RESULTS_PATH}/{RUN}_delta_social_costs.png")
+    plt.savefig(f"{RESULTS_PATH}/delta_social_costs.png")
 
     plt.figure(dpi=320)
     heatmap_plot = sns.heatmap(
@@ -217,8 +224,19 @@ if EXPECTED_VALUES:
         ylabel="y-coordinate of initial state identifier",
         title="State Aggregated Social Cost",
     )
-    plt.savefig(f"{RESULTS_PATH}/{RUN}_state_agg_social_cost.png")
+    plt.savefig(f"{RESULTS_PATH}/state_agg_social_cost.png")
+
+# store experiment data
+exp_data["social costs"] = social_costs.tolist()
+if LOAD_EXPECTED_VALUES:
+    exp_data["state aggregated social cost"] = state_aggregated_social_cost
+    # compute average delta social cost
+    avg_delta_social_cost = np.nanmean(delta_social_costs)
+    exp_data["averaged delta social cost"] = avg_delta_social_cost
+
 
 # save experiment data
-with open(f"{RESULTS_PATH}/{RUN}_exp_data.json", "w", encoding="utf-8") as fp:
+with open(f"{RESULTS_PATH}/exp_data.json", "w", encoding="utf-8") as fp:
     json.dump(exp_data, fp, sort_keys=True, indent=4)
+
+
