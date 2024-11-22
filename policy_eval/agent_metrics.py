@@ -7,7 +7,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import load_agent_policies, process_observation, select_action
 import torch
-import torch._dynamo
+# import torch._dynamo
 import numpy as np
 import gym
 from plotly.subplots import make_subplots
@@ -20,7 +20,7 @@ from wildfire_environment.utils.misc import (
     get_initial_fire_coordinates,
 )
 
-torch._dynamo.config.suppress_errors = True
+# torch._dynamo.config.suppress_errors = True
 
 
 class AgentMetrics:

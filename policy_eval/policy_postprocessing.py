@@ -1,7 +1,7 @@
 import gym
 import wildfire_environment
-
-# from agent_metrics import AgentMetrics
+from agent_metrics import AgentMetrics
+from social_cost import compute_social_costs
 from ccm import save_time_series, latent_ccm
 
 
@@ -13,14 +13,14 @@ env = gym.make(
     beta=0.9,
     delta_beta=0.7,
     num_agents=2,
-    agent_start_positions=((12, 6), (12, 13)),
+    agent_start_positions=((4, 8), (12, 8)),
     initial_fire_size=3,
     max_steps=100,
     cooperative_reward=True,
-    selfish_region_xmin=[11, 11],
-    selfish_region_xmax=[13, 13],
-    selfish_region_ymin=[5, 12],
-    selfish_region_ymax=[7, 14],
+    selfish_region_xmin=[2, 11],
+    selfish_region_xmax=[6, 13],
+    selfish_region_ymin=[7, 6],
+    selfish_region_ymax=[9, 10],
     log_selfish_region_metrics=True,
 )
 # parameters
@@ -29,8 +29,8 @@ num_episodes = 1000  # number of episodes to perform for policy evaluation or ag
 initial_state_identifiers = [
     (7, 12),
 ]  # specifies the initial states over which to average the state visitation frequencies
-mmdp_policy = "ippo_13Aug_run5"
-mg_policy = "ippo_13Aug_run6"
+mmdp_policy = "ippo_13Aug_run9"
+mg_policy = "ippo_13Aug_run10"
 stochastic_policy = True
 # directories needed to load agent policies
 mg_model_path = "exp_results/wildfire/ippo_test_13Aug_run12/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_7d8e9_00000_0_2024-09-02_17-27-08/checkpoint_001719/checkpoint-1719"
@@ -38,10 +38,10 @@ mg_params_path = "exp_results/wildfire/ippo_test_13Aug_run12/ippo_mlp_wildfire/I
 mmdp_model_path = "exp_results/wildfire/ippo_test_13Aug_run11/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_f8c9c_00000_0_2024-09-02_17-23-25/checkpoint_001735/checkpoint-1735"
 mmdp_params_path = "exp_results/wildfire/ippo_test_13Aug_run11/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_f8c9c_00000_0_2024-09-02_17-23-25/params copy.json"
 COMPUTE_AGENT_METRICS = False  # whether to compute agent metrics
-COMPUTE_SOCIAL_COST = False  # whether to compute social cost
+COMPUTE_SOCIAL_COST = True  # whether to compute social cost
 EVALUALTE_POLICY = False  # whether to evaluate policy
 VALUE_ESTIMATION_VS_SAMPLES = False  # whether to run value estimation vs samples code
-COMPUTE_CCM = True  # whether to compute CCM
+COMPUTE_CCM = False  # whether to compute CCM
 CCM_TIME_SERIES = False  # whether to save agent position time series
 
 if COMPUTE_AGENT_METRICS:
@@ -70,6 +70,24 @@ if COMPUTE_AGENT_METRICS:
     )
     aviz.state_visitation_heatmaps(initial_fire_vertices, selfish_region_vertices)
     # aviz.make_spider_chart()
+
+if COMPUTE_SOCIAL_COST:
+    reward_function_type = 'negative'
+    compute_social_costs(
+        env,
+        reward_function_type,
+        mmdp_policy,
+        mg_policy,
+        'first_run',
+        'first_run',
+        load_expected_values=True,
+        mmdp_expected_value_run='first_run',
+        mg_expected_value_run='first_run',
+        mmdp_num_episodes_for_expected_value_computation=100000,
+        mg_num_episodes_for_expected_value_computation=100000,
+        tolerance=1e-1,
+        annotate=True
+    )
 
 if CCM_TIME_SERIES or COMPUTE_CCM:
     if CCM_TIME_SERIES:
