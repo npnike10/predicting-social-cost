@@ -7,7 +7,6 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import load_agent_policies, process_observation, select_action
 import torch
-# import torch._dynamo
 import numpy as np
 import gym
 from plotly.subplots import make_subplots
@@ -19,8 +18,6 @@ from tqdm import tqdm
 from wildfire_environment.utils.misc import (
     get_initial_fire_coordinates,
 )
-
-# torch._dynamo.config.suppress_errors = True
 
 
 class AgentMetrics:
@@ -104,10 +101,7 @@ class AgentMetrics:
             "initial state identifiers": initial_state_identifiers,
         }
 
-        # compile select_action function for faster execution at runtime
-        self.select_action_opt = torch.compile(select_action, mode="reduce-overhead")
-
-    def state_visitation_heatmaps(self, initial_fire_vertices, selfish_region_vertices):
+    def state_visitation_heatmaps(self):
         """Create heatmaps of state visitation frequencies for MG and MMDP agents.
 
         Parameters
@@ -122,10 +116,9 @@ class AgentMetrics:
 
         # create directories to store results
         RESULTS_PATH = (
-            "policy_eval/results/visitation_maps"  # directory to store results
+            f"policy_eval/results/visitation_maps/{self.mmdp_policy}_&_{self.mg_policy}"  # directory to store results
         )
-        if not os.path.exists(RESULTS_PATH):
-            os.makedirs(RESULTS_PATH)
+        os.makedirs(RESULTS_PATH, exist_ok=True)
 
         # create arrays to store final state visitation frequencies
         final_mg_heatmap = [
@@ -170,7 +163,7 @@ class AgentMetrics:
             ):
                 for _ in count():
                     # step environment
-                    action = self.select_action_opt(
+                    action = select_action(
                         ma_obs,
                         self.mg_agent_policies,
                         env.num_agents,
@@ -202,7 +195,7 @@ class AgentMetrics:
             ):
                 for _ in count():
                     # step environment
-                    action = self.select_action_opt(
+                    action = select_action(
                         ma_obs,
                         self.mmdp_agent_policies,
                         env.num_agents,
@@ -247,7 +240,7 @@ class AgentMetrics:
 
         # save experiment data
         with open(
-            f"{RESULTS_PATH}/{self.mmdp_policy}_{self.mg_policy}_policies_{self.run}_exp_data.json",
+            f"{RESULTS_PATH}/{self.run}_exp_data.json",
             "w",
             encoding="utf-8",
         ) as fp:
@@ -271,20 +264,6 @@ class AgentMetrics:
             heatmap_plot.xaxis.tick_top()
 
             # create patches for initial fire, selfish regions, agent initial positions and walls
-            initial_fire_patch = patches.Polygon(
-                xy=initial_fire_vertices,
-                closed=True,
-                edgecolor="orange",
-                facecolor="none",
-                linewidth=1,
-            )
-            selfish_region_patch = patches.Polygon(
-                xy=selfish_region_vertices[i],
-                closed=True,
-                edgecolor=f"{env.agent_colors[i]}",
-                facecolor="none",
-                linewidth=1,
-            )
             upper_wall_patch = patches.Rectangle(
                 xy=(0, 0),
                 width=env.grid_size,
@@ -325,13 +304,42 @@ class AgentMetrics:
             )
 
             # add patches to heatmap plot
-            ax.add_patch(initial_fire_patch)
             ax.add_patch(initial_position_patch)
-            ax.add_patch(selfish_region_patch)
             ax.add_patch(upper_wall_patch)
             ax.add_patch(lower_wall_patch)
             ax.add_patch(left_wall_patch)
             ax.add_patch(right_wall_patch)
+
+            # add selfish regions to heatmap
+            for id, _ in enumerate(env.agents):
+                anchor_point = (env.selfish_xmin[id], env.selfish_ymin[id])
+                width = env.selfish_xmax[id] - env.selfish_xmin[id] + 1
+                height =  env.selfish_ymax[id] - env.selfish_ymin[id] + 1
+                selfish_region_patch = patches.Rectangle(
+                        anchor_point,
+                        width,
+                        height,
+                        edgecolor=f"{env.agent_colors[id]}",
+                        facecolor="none",
+                        linewidth=1,
+                    )
+                ax.add_patch(selfish_region_patch)
+
+            # add initial fire to heatmap
+            if len(self.initial_fire_identifiers)>1:
+                raise ValueError("Modify the initial fire patch creation code to handle multiple initial fire locations.")
+            anchor_point = (self.initial_state_identifiers[0][0], self.initial_state_identifiers[0][1])
+            width = 1
+            height = 1
+            initial_fire_patch = patches.Rectangle(
+                    anchor_point,
+                    width,
+                    height,
+                    edgecolor="orange",
+                    facecolor="none",
+                    linewidth=1,
+                )
+            ax.add_patch(initial_fire_patch)
 
             # set plot title and save plot
             ax.set_title(
@@ -353,20 +361,6 @@ class AgentMetrics:
             heatmap_plot.xaxis.tick_top()
 
             # create patches for initial fire, selfish regions, agent initial positions and walls
-            initial_fire_patch = patches.Polygon(
-                xy=initial_fire_vertices,
-                closed=True,
-                edgecolor="orange",
-                facecolor="none",
-                linewidth=1,
-            )
-            selfish_region_patch = patches.Polygon(
-                xy=selfish_region_vertices[i],
-                closed=True,
-                edgecolor=f"{env.agent_colors[i]}",
-                facecolor="none",
-                linewidth=1,
-            )
             upper_wall_patch = patches.Rectangle(
                 xy=(0, 0),
                 width=env.grid_size,
@@ -407,13 +401,42 @@ class AgentMetrics:
             )
 
             # add patches to heatmap plot
-            ax.add_patch(initial_fire_patch)
             ax.add_patch(initial_position_patch)
-            ax.add_patch(selfish_region_patch)
             ax.add_patch(upper_wall_patch)
             ax.add_patch(lower_wall_patch)
             ax.add_patch(left_wall_patch)
             ax.add_patch(right_wall_patch)
+
+            # add selfish regions to heatmap
+            for id, _ in enumerate(env.agents):
+                anchor_point = (env.selfish_xmin[id], env.selfish_ymin[id])
+                width = env.selfish_xmax[id] - env.selfish_xmin[id] + 1
+                height =  env.selfish_ymax[id] - env.selfish_ymin[id] + 1
+                selfish_region_patch = patches.Rectangle(
+                        anchor_point,
+                        width,
+                        height,
+                        edgecolor=f"{env.agent_colors[id]}",
+                        facecolor="none",
+                        linewidth=1,
+                    )
+                ax.add_patch(selfish_region_patch)
+
+            # add initial fire to heatmap
+            if len(self.initial_fire_identifiers)>1:
+                raise ValueError("Modify the initial fire patch creation code to handle multiple initial fire locations.")
+            anchor_point = (self.initial_state_identifiers[0][0], self.initial_state_identifiers[0][1])
+            width = 1
+            height = 1
+            initial_fire_patch = patches.Rectangle(
+                    anchor_point,
+                    width,
+                    height,
+                    edgecolor="orange",
+                    facecolor="none",
+                    linewidth=1,
+                )
+            ax.add_patch(initial_fire_patch)
 
             # set plot title and save plot
             ax.set_title(
@@ -422,7 +445,7 @@ class AgentMetrics:
 
         # save plots
         plt.savefig(
-            f"{RESULTS_PATH}/{self.mmdp_policy}_{self.mg_policy}_policies_{self.run}.png"
+            f"{RESULTS_PATH}/{self.run}.png"
         )
 
     def distance_to_fire_boundary(self, agent_pos):
@@ -507,14 +530,10 @@ class AgentMetrics:
 
         env = self.env
         device = self.device
-
-        # create directories to store results
-        mmdp_results_path = f"policy_eval/results/{self.mmdp_policy}_policy/strategy_metrics/boundary_attack_metric"
-        mg_results_path = f"policy_eval/results/{self.mg_policy}_policy/strategy_metrics/boundary_attack_metric"
-        if not os.path.exists(mmdp_results_path):
-            os.makedirs(mmdp_results_path)
-        if not os.path.exists(mg_results_path):
-            os.makedirs(mg_results_path)
+        RESULTS_PATH = (
+            f"policy_eval/results/heuristic_metrics/boundary_attack/{self.mmdp_policy}_&_{self.mg_policy}"  # directory to store results
+        )
+        os.makedirs(RESULTS_PATH, exist_ok=True)
 
         # initialize arrays to store final metric values
         final_mg_metric = np.zeros(env.num_agents)
@@ -561,7 +580,7 @@ class AgentMetrics:
                 mmdp_metric_ep = np.zeros(env.num_agents)
                 for t in count():
                     # step environment
-                    action = self.select_action_opt(
+                    action = select_action(
                         ma_obs,
                         self.mg_agent_policies,
                         env.num_agents,
@@ -623,7 +642,7 @@ class AgentMetrics:
             ):
                 for t in count():
                     # step environment
-                    action = self.select_action_opt(
+                    action = select_action(
                         ma_obs,
                         self.mmdp_agent_policies,
                         env.num_agents,
@@ -695,13 +714,9 @@ class AgentMetrics:
         exp_data["final_mg_metric"] = final_mg_metric.tolist()
         exp_data["final_mmdp_metric"] = final_mmdp_metric.tolist()
         with open(
-            f"{mmdp_results_path}/{self.run}_exp_config.json",
+            f"{RESULTS_PATH}/{self.run}_exp_config.json",
             "w",
             encoding="utf-8",
-        ) as fp:
-            json.dump(exp_data, fp, sort_keys=True, indent=4)
-        with open(
-            f"{mg_results_path}/{self.run}_exp_config.json", "w", encoding="utf-8"
         ) as fp:
             json.dump(exp_data, fp, sort_keys=True, indent=4)
         return exp_data
@@ -711,14 +726,10 @@ class AgentMetrics:
 
         env = self.env
         device = self.device
-
-        # directories to store results
-        mmdp_results_path = f"policy_eval/results/{self.mmdp_policy}_policy/strategy_metrics/distance_from_other_agents"
-        mg_results_path = f"policy_eval/results/{self.mg_policy}_policy/strategy_metrics/distance_from_other_agents"
-        if not os.path.exists(mmdp_results_path):
-            os.makedirs(mmdp_results_path)
-        if not os.path.exists(mg_results_path):
-            os.makedirs(mg_results_path)
+        RESULTS_PATH = (
+                    f"policy_eval/results/heuristic_metrics/inter_agent_distance/{self.mmdp_policy}_&_{self.mg_policy}"  # directory to store results
+                )
+        os.makedirs(RESULTS_PATH, exist_ok=True)
 
         # initialize arrays to store final metric values
         final_mg_metric = np.zeros(env.num_agents)
@@ -762,7 +773,7 @@ class AgentMetrics:
 
                 for t in count():
                     # step environment
-                    action = self.select_action_opt(
+                    action = select_action(
                         ma_obs,
                         self.mg_agent_policies,
                         env.num_agents,
@@ -819,7 +830,7 @@ class AgentMetrics:
 
                 for t in count():
                     # step environment
-                    action = self.select_action_opt(
+                    action = select_action(
                         ma_obs,
                         self.mmdp_agent_policies,
                         env.num_agents,
@@ -874,11 +885,7 @@ class AgentMetrics:
         exp_data["final_mg_metric"] = final_mg_metric.tolist()
         exp_data["final_mmdp_metric"] = final_mmdp_metric.tolist()
         with open(
-            f"{mmdp_results_path}/{self.run}_exp_config.json", "w", encoding="utf-8"
-        ) as fp:
-            json.dump(exp_data, fp, sort_keys=True, indent=4)
-        with open(
-            f"{mg_results_path}/{self.run}_exp_config.json", "w", encoding="utf-8"
+            f"{RESULTS_PATH}/{self.run}_exp_config.json", "w", encoding="utf-8"
         ) as fp:
             json.dump(exp_data, fp, sort_keys=True, indent=4)
 
@@ -933,14 +940,10 @@ class AgentMetrics:
 
         env = self.env
         device = self.device
-
-        # directories to store results
-        mmdp_results_path = f"policy_eval/results/{self.mmdp_policy}_policy/strategy_metrics/distance_from_selfish_region"
-        mg_results_path = f"policy_eval/results/{self.mg_policy}_policy/strategy_metrics/distance_from_selfish_region"
-        if not os.path.exists(mmdp_results_path):
-            os.makedirs(mmdp_results_path)
-        if not os.path.exists(mg_results_path):
-            os.makedirs(mg_results_path)
+        RESULTS_PATH = (
+                    f"policy_eval/results/heuristic_metrics/SR_to_agent_distance/{self.mmdp_policy}_&_{self.mg_policy}"  # directory to store results
+                )
+        os.makedirs(RESULTS_PATH, exist_ok=True)
 
         # initialize arrays to store final metric values
         final_mg_metric = np.zeros(env.num_agents)
@@ -985,7 +988,7 @@ class AgentMetrics:
 
                 for t in count():
                     # step environment
-                    action = self.select_action_opt(
+                    action = select_action(
                         ma_obs,
                         self.mg_agent_policies,
                         env.num_agents,
@@ -1044,7 +1047,7 @@ class AgentMetrics:
 
                 for t in count():
                     # step environment
-                    action = self.select_action_opt(
+                    action = select_action(
                         ma_obs,
                         self.mmdp_agent_policies,
                         env.num_agents,
@@ -1102,14 +1105,9 @@ class AgentMetrics:
         exp_data["final_mg_metric"] = final_mg_metric.tolist()
         exp_data["final_mmdp_metric"] = final_mmdp_metric.tolist()
         with open(
-            f"{mmdp_results_path}/{self.run}_exp_config.json", "w", encoding="utf-8"
+            f"{RESULTS_PATH}/{self.run}_exp_config.json", "w", encoding="utf-8"
         ) as fp:
             json.dump(exp_data, fp, sort_keys=True, indent=4)
-        with open(
-            f"{mg_results_path}/{self.run}_exp_config.json", "w", encoding="utf-8"
-        ) as fp:
-            json.dump(exp_data, fp, sort_keys=True, indent=4)
-
         return exp_data
 
     def time_over_fire_metric(self, in_selfish_region=False):
@@ -1123,20 +1121,10 @@ class AgentMetrics:
 
         env = self.env
         device = self.device
-
-        # directories to store results
-        mmdp_results_path = (
-            f"policy_eval/results/{self.mmdp_policy}_policy/strategy_metrics/time_over_fire"
-            + in_selfish_region * "_in_selfish_region"
-        )
-        mg_results_path = (
-            f"policy_eval/results/{self.mg_policy}_policy/strategy_metrics/time_over_fire"
-            + in_selfish_region * "_in_selfish_region"
-        )
-        if not os.path.exists(mmdp_results_path):
-            os.makedirs(mmdp_results_path)
-        if not os.path.exists(mg_results_path):
-            os.makedirs(mg_results_path)
+        RESULTS_PATH = (
+                    f"policy_eval/results/heuristic_metrics/time_over_fire"+ in_selfish_region * "_SR"+f"/{self.mmdp_policy}_&_{self.mg_policy}"  # directory to store results
+                )
+        os.makedirs(RESULTS_PATH, exist_ok=True)
 
         # initialize arrays to store final metric values
         final_mg_metric = np.zeros(env.num_agents)
@@ -1180,7 +1168,7 @@ class AgentMetrics:
 
                 for t in count():
                     # step environment
-                    action = self.select_action_opt(
+                    action = select_action(
                         ma_obs,
                         self.mg_agent_policies,
                         env.num_agents,
@@ -1234,7 +1222,7 @@ class AgentMetrics:
 
                 for t in count():
                     # step environment
-                    action = self.select_action_opt(
+                    action = select_action(
                         ma_obs,
                         self.mmdp_agent_policies,
                         env.num_agents,
@@ -1286,11 +1274,7 @@ class AgentMetrics:
         exp_data["final_mg_metric"] = final_mg_metric.tolist()
         exp_data["final_mmdp_metric"] = final_mmdp_metric.tolist()
         with open(
-            f"{mmdp_results_path}/{self.run}_exp_config.json", "w", encoding="utf-8"
-        ) as fp:
-            json.dump(exp_data, fp, sort_keys=True, indent=4)
-        with open(
-            f"{mg_results_path}/{self.run}_exp_config.json", "w", encoding="utf-8"
+            f"{RESULTS_PATH}/{self.run}_exp_config.json", "w", encoding="utf-8"
         ) as fp:
             json.dump(exp_data, fp, sort_keys=True, indent=4)
 
@@ -1299,13 +1283,10 @@ class AgentMetrics:
     def make_spider_chart(self):
         """Create a radar chart to visualize the performance of agents."""
 
-        # directories to store results
-        mmdp_results_path = f"policy_eval/results/{self.mmdp_policy}_policy/strategy_metrics/spider_charts"
-        mg_results_path = f"policy_eval/results/{self.mg_policy}_policy/strategy_metrics/spider_charts"
-        if not os.path.exists(mmdp_results_path):
-            os.makedirs(mmdp_results_path)
-        if not os.path.exists(mg_results_path):
-            os.makedirs(mg_results_path)
+        RESULTS_PATH = (
+                    f"policy_eval/results/heuristic_metrics/spider_charts/{self.mmdp_policy}_&_{self.mg_policy}"  # directory to store results
+                )
+        os.makedirs(RESULTS_PATH, exist_ok=True)
 
         # compute metrics
         data_ba = self.boundary_attack_metric()
@@ -1365,5 +1346,4 @@ class AgentMetrics:
             )
         fig.for_each_annotation(lambda a: a.update(text=f"<b>{a.text}</b>"))
         fig.update_annotations(font=dict(family="Helvetica", size=12))
-        fig.write_image(f"{mg_results_path}/{self.run}_spider_chart.png", scale=8)
-        fig.write_image(f"{mmdp_results_path}/{self.run}_spider_chart.png", scale=8)
+        fig.write_image(f"{RESULTS_PATH}/{self.run}_spider_chart.png", scale=8)

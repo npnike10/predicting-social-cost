@@ -166,8 +166,8 @@ def compute_social_costs(env, reward_function_type, mmdp_policy, mg_policy, mmdp
     cmap = sns.color_palette("Greens", as_cmap=True)
     cmap.set_bad(color="gray")  # Set NaN values to gray
 
-
     # create and save social cost heatmap, delta social cost heatmap and state aggregated social cost heatmap
+    sns.set_theme(font_scale=0.6)
     plt.figure(dpi=320)
     heatmap_plot = sns.heatmap(
         social_costs_with_nan,
@@ -175,16 +175,16 @@ def compute_social_costs(env, reward_function_type, mmdp_policy, mg_policy, mmdp
         yticklabels=yticks,
         cmap=cmap,
         annot=annotate,
-        annot_kws={"fontsize": 5, "fontweight": "bold", "color": "white"},
+        annot_kws={"fontsize": 5, "fontweight": "bold", "color": "black"},
         vmin=vmin,
         vmax=vmax,
     )
 
     heatmap_plot.xaxis.tick_top()
     heatmap_plot.set(
-        xlabel="x-coordinate of initial state identifier",
-        ylabel="y-coordinate of initial state identifier",
-        title="Social Cost at Different Initial States",
+        xlabel=r"$c^{fire}_x$",
+        ylabel=r"$c^{fire}_y$",
+        title="State-Dependent Price of Anarchy (sPoA)",
     )
 
     # add selfish regions to heatmap
@@ -203,9 +203,9 @@ def compute_social_costs(env, reward_function_type, mmdp_policy, mg_policy, mmdp
         heatmap_plot.add_patch(selfish_region)
 
     if annotate:
-        plt.savefig(f"{RESULTS_PATH}/social_costs_annotated.png")
+        plt.savefig(f"{RESULTS_PATH}/spoa_annotated.png")
     else:
-        plt.savefig(f"{RESULTS_PATH}/social_costs.png")
+        plt.savefig(f"{RESULTS_PATH}/spoa.png")
 
     if load_expected_values:
         plt.figure(dpi=320)
@@ -215,16 +215,16 @@ def compute_social_costs(env, reward_function_type, mmdp_policy, mg_policy, mmdp
             yticklabels=yticks,
             cmap=cmap,
             annot=annotate,
-            annot_kws={"fontsize": 5, "fontweight": "bold", "color": "white"},
+            annot_kws={"fontsize": 5, "fontweight": "bold", "color": "black"},
             vmin=vmin,
             vmax=vmax,
         )
 
         heatmap_plot.xaxis.tick_top()
         heatmap_plot.set(
-            xlabel="x-coordinate of initial state identifier",
-            ylabel="y-coordinate of initial state identifier",
-            title="Abs. Difference b/w Social Cost and State Aggregated Social Cost",
+            xlabel=r"$c^{fire}_x$",
+            ylabel=r"$c^{fire}_y$",
+            title="State-wise comparison of sPoA and ePoA",
         )
 
         # add selfish regions to heatmap
@@ -243,21 +243,21 @@ def compute_social_costs(env, reward_function_type, mmdp_policy, mg_policy, mmdp
             heatmap_plot.add_patch(selfish_region)
 
         if annotate:
-            plt.savefig(f"{RESULTS_PATH}/delta_social_costs_annotated.png")
+            plt.savefig(f"{RESULTS_PATH}/delta_spoa_epoa_annotated.png")
         else:
-            plt.savefig(f"{RESULTS_PATH}/delta_social_costs.png")
+            plt.savefig(f"{RESULTS_PATH}/delta_spoa_epoa.png")
 
     # store experiment data
-    exp_data["social costs"] = social_costs.tolist()
+    exp_data["sPoA"] = social_costs.tolist()
     if load_expected_values:
-        exp_data["state aggregated social cost"] = state_aggregated_social_cost
+        exp_data["ePoA"] = state_aggregated_social_cost
         # compute average delta social cost
         avg_delta_social_cost = np.nanmean(delta_social_costs)
         max_delta_social_cost = np.nanmax(delta_social_costs)
         std_delta_social_cost = np.nanstd(delta_social_costs)
-        exp_data["averaged delta social cost"] = avg_delta_social_cost
-        exp_data["max delta social cost"] = max_delta_social_cost
-        exp_data["std delta social cost"] = std_delta_social_cost
+        exp_data["averaged delta sPoA ePoA"] = avg_delta_social_cost
+        exp_data["max delta sPoA ePoA"] = max_delta_social_cost
+        exp_data["std delta sPoA ePoA"] = std_delta_social_cost
 
 
     # save experiment data

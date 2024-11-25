@@ -3,8 +3,12 @@ import os
 import numpy as np
 import gym
 import wildfire_environment
-from wildfire_environment.utils.misc import save_frames_as_gif
+from wildfire_environment.utils.misc import save_frames_as_gif, get_initial_fire_coordinates
 import torch
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.animation import PillowWriter
+
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (
@@ -13,56 +17,59 @@ from utils import (
     select_action,
 )  # pylint: disable=import-error
 
-# initialize environment. Set the arguments as desired.
-env = gym.make(
-    "wildfire-v0",
-    size=17,
-    alpha=0.15,
-    beta=0.9,
-    delta_beta=0.7,
-    num_agents=2,
-    agent_start_positions=((8, 8), (14, 2)),
-    initial_fire_size=3,
-    max_steps=100,
-    cooperative_reward=True,
-    selfish_region_xmin=[7, 13],
-    selfish_region_xmax=[9, 15],
-    selfish_region_ymin=[7, 1],
-    selfish_region_ymax=[9, 3],
-    log_selfish_region_metrics=True,
-    render_selfish_region_boundaries=True,
-)
+def save_frames_as_gif(frames, path, filename, ep, fps=2, dpi=320):
+    fig = plt.figure()
+    plt.axis('off')
+    ims = [[plt.imshow(frame, animated=True)] for frame in frames]
+    anim = animation.ArtistAnimation(fig, ims, interval=1000/fps, blit=True)
+    gif_path = f"{path}{filename}-{ep}.gif"
+    anim.save(gif_path, writer=PillowWriter(fps=fps))
+    plt.close(fig)
 
-# directories needed to load agent policies
-MODEL_PATH = "exp_results/wildfire/ippo_test_13Aug_run5/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_a28c2_00000_0_2024-09-01_23-05-48/checkpoint_001411/checkpoint-1411"
-PARAMS_PATH = "exp_results/wildfire/ippo_test_13Aug_run5/ippo_mlp_wildfire/IPPOTrainer_wildfire_wildfire_a28c2_00000_0_2024-09-01_23-05-48/params copy.json"
-SHARED_POLICY = True  # whether agents share the same policy
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-STOCHASTIC_POLICY = True  # whether policy is stochastic
+def render(env, policy, model_path, params_path, shared_policy, stochastic_policy, initial_state_identifier=None):
 
-# load policies
-agent_policies = load_agent_policies(
-    MODEL_PATH, PARAMS_PATH, shared_policy=SHARED_POLICY, num_agents=env.num_agents
-)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# run episodes
-obs, _ = env.reset()
-state = torch.tensor(env.get_state(), dtype=torch.float32).to(device)
-ma_obs = process_observation(obs, device, state)
-frames = []
-frames.append(env.render())
-num_episodes = 1
+    # results directory
+    RESULTS_PATH = f"policy_eval/results/videos/{policy}"  # directory to store results
+    os.makedirs(RESULTS_PATH, exist_ok=True)
 
-for ep in range(num_episodes):
-    while True:
-        ma_action = select_action(
-            ma_obs, agent_policies, env.num_agents, STOCHASTIC_POLICY
+    # load policies
+    agent_policies = load_agent_policies(
+        model_path, params_path, shared_policy=shared_policy, num_agents=env.num_agents
+    )
+
+    # run episodes
+    if initial_state_identifier:
+        # reset env to given initial state and get initial observations
+        trees_on_fire = get_initial_fire_coordinates(
+            *initial_state_identifier,
+            env.grid_size,
+            env.initial_fire_size,
         )
-        obs, reward, done, _ = env.step(ma_action)
+        initial_state = torch.tensor(
+            env.construct_state(trees_on_fire, env.agent_start_positions, 0),
+            dtype=torch.float32,
+        ).to(device)
+        obs, _ = env.reset(state=initial_state.cpu().numpy())
+        ma_obs = process_observation(obs, device, initial_state)
+    else:
+        obs, _ = env.reset()
         state = torch.tensor(env.get_state(), dtype=torch.float32).to(device)
         ma_obs = process_observation(obs, device, state)
-        frames.append(env.render())
-        if done:
-            break
-    # save GIF for current episodes
-    save_frames_as_gif(frames, path="./", filename="wildfire", ep=ep, fps=2, dpi=320)
+    frames = []
+    frames.append(env.render())
+
+    for ep in range(1):
+        while True:
+            ma_action = select_action(
+                ma_obs, agent_policies, env.num_agents, stochastic_policy
+            )
+            obs, reward, done, _ = env.step(ma_action)
+            state = torch.tensor(env.get_state(), dtype=torch.float32).to(device)
+            ma_obs = process_observation(obs, device, state)
+            frames.append(env.render())
+            if done:
+                break
+        # save GIF for current episodes
+        save_frames_as_gif(frames, path=RESULTS_PATH+"/", filename=f"{initial_state_identifier}fire-ep", ep=ep, fps=2, dpi=320)
