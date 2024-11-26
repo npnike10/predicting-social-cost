@@ -1,2 +1,2 @@
-# predicting-social-cost
-Contains code to train MARL agents using MARLlib, perform Monte Carlo policy evaluation, compute social cost and generate agent strategy metrics and visualizations
+# State-Dependent Price of Anarchy
+Contains code to train MARL agents using MARLlib, perform Monte Carlo policy evaluation, compute state-dependent price of anarchy and generate visualizations for heuristic metrics in wildfire env to understand agent behaviour 

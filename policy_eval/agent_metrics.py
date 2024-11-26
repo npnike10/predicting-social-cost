@@ -255,7 +255,7 @@ class AgentMetrics:
             cbar_location = ["left", "right"]
             heatmap_plot = sns.heatmap(
                 hm,
-                cmap="GnBu",
+                cmap="copper",
                 vmin=np.min(hm),
                 vmax=np.max(hm),
                 ax=ax,
@@ -298,7 +298,7 @@ class AgentMetrics:
                     env.agent_start_positions[i][1] + 0.5,
                 ),
                 radius=0.2,
-                edgecolor="olive",
+                edgecolor="white",
                 facecolor="none",
                 linewidth=7,
             )
@@ -321,12 +321,12 @@ class AgentMetrics:
                         height,
                         edgecolor=f"{env.agent_colors[id]}",
                         facecolor="none",
-                        linewidth=1,
+                        linewidth=2,
                     )
                 ax.add_patch(selfish_region_patch)
 
             # add initial fire to heatmap
-            if len(self.initial_fire_identifiers)>1:
+            if len(self.initial_state_identifiers)>1:
                 raise ValueError("Modify the initial fire patch creation code to handle multiple initial fire locations.")
             anchor_point = (self.initial_state_identifiers[0][0], self.initial_state_identifiers[0][1])
             width = 1
@@ -337,7 +337,7 @@ class AgentMetrics:
                     height,
                     edgecolor="orange",
                     facecolor="none",
-                    linewidth=1,
+                    linewidth=2,
                 )
             ax.add_patch(initial_fire_patch)
 
@@ -352,7 +352,7 @@ class AgentMetrics:
             cbar_location = ["left", "right"]
             heatmap_plot = sns.heatmap(
                 hm,
-                cmap="GnBu",
+                cmap="copper",
                 vmin=np.min(hm),
                 vmax=np.max(hm),
                 ax=ax,
@@ -418,12 +418,12 @@ class AgentMetrics:
                         height,
                         edgecolor=f"{env.agent_colors[id]}",
                         facecolor="none",
-                        linewidth=1,
+                        linewidth=2,
                     )
                 ax.add_patch(selfish_region_patch)
 
             # add initial fire to heatmap
-            if len(self.initial_fire_identifiers)>1:
+            if len(self.initial_state_identifiers)>1:
                 raise ValueError("Modify the initial fire patch creation code to handle multiple initial fire locations.")
             anchor_point = (self.initial_state_identifiers[0][0], self.initial_state_identifiers[0][1])
             width = 1
@@ -434,7 +434,7 @@ class AgentMetrics:
                     height,
                     edgecolor="orange",
                     facecolor="none",
-                    linewidth=1,
+                    linewidth=2,
                 )
             ax.add_patch(initial_fire_patch)
 
